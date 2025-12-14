@@ -2,20 +2,44 @@ server:
   port: 8084
 
 spring:
-  application:
-    name: incident-service
-
   datasource:
-    url: jdbc:postgresql://localhost:5432/smartmove
-    username: lina
-    password: lina
+    url: jdbc:h2:mem:incidentdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
 
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
 
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
 eureka:
   client:
-    serviceUrl:
+    service-url:
       defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+tomtom:
+  api-key: "FtXd5BIiO1CWVxJdcGR9Jm35Rv9vGGml"
+  base-url: "https://api.tomtom.com/traffic/services/5/incidentDetails"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always

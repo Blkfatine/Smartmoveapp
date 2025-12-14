@@ -14,6 +14,7 @@ public class TrafficServiceImpl implements TrafficService {
 
     private final TrafficRepository trafficRepository;
     private final TrafficTomTomClient tomTomClient;
+    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
     public List<Traffic> getAllTraffic() {
@@ -33,7 +34,16 @@ public class TrafficServiceImpl implements TrafficService {
         // TODO : un jour on convertira le JSON → Traffic
         Traffic t = new Traffic();
         t.setSource("TomTom API");
-        t.setRawResponse(json);   // si tu veux stocker brut
+        t.setRawResponse(json); // si tu veux stocker brut
+
+        // Publish update to Kafka (Mocking the event)
+        try {
+            kafkaTemplate.send("traffic-updates", "traffic-" + System.currentTimeMillis(), t);
+            System.out.println("Published traffic update to Kafka");
+        } catch (Exception e) {
+            System.err.println("Failed to publish traffic update: " + e.getMessage());
+        }
+
         return t;
     }
 }

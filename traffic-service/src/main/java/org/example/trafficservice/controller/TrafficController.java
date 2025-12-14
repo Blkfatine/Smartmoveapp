@@ -32,4 +32,12 @@ public class TrafficController {
     ) {
         return trafficService.getTrafficFromTomTom(lat, lon);
     }
+    @GetMapping("/realtime")
+    public Traffic getRealTimeTraffic(
+            @RequestParam double lat,
+            @RequestParam double lon
+    ) {
+        return trafficService.getTrafficFromTomTom(lat, lon);
+    }
+
 }

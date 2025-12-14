@@ -9,4 +9,7 @@ public interface IncidentService {
     Incident getById(Long id);
     Incident createIncident(Incident incident);
     void delete(Long id);
+
+    List<Incident> importFromTomTom();
 }
+
