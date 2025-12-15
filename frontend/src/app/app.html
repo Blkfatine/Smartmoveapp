@@ -13,7 +13,7 @@
     <!-- Sidebar (Left) -->
     <div class="col-md-3 col-lg-2 bg-light border-end p-3 overflow-auto">
       <h6 class="text-uppercase text-muted fw-bold mb-3">Planification</h6>
-      <app-trip-planner (planTrip)="onPlanTrip($event)"></app-trip-planner>
+      <app-trip-planner [isLoading]="isLoading" (planTrip)="onPlanTrip($event)"></app-trip-planner>
 
       <hr>
 
@@ -25,10 +25,16 @@
     <div class="col-md-6 col-lg-7 p-0 position-relative">
       <app-map></app-map>
 
-      <!-- Overlay for quick stats could go here -->
+      <!-- Overlay for quick stats -->
       <div class="position-absolute bottom-0 start-0 m-3 p-2 bg-white rounded shadow-sm"
         style="z-index: 1000; opacity: 0.9">
         <small class="fw-bold">Données Temps Réel: Actives <span class="text-success">●</span></small>
+      </div>
+
+      <div *ngIf="isLoading" class="position-absolute top-50 start-50 translate-middle badge bg-dark p-3 shadow"
+        style="z-index: 1001; opacity: 0.9">
+        <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
+        Analyse IA du trajet en cours...
       </div>
     </div>
 
@@ -36,14 +42,14 @@
     <div class="col-md-3 col-lg-3 bg-white border-start p-3 overflow-auto">
       <h6 class="text-uppercase text-muted fw-bold mb-3">Analyse & Résultats</h6>
 
-      <div *ngIf="!currentPrediction" class="text-center text-muted mt-5">
+      <div *ngIf="!currentPrediction && !isLoading" class="text-center text-muted mt-5">
         <i class="bi bi-map fs-1"></i>
         <p class="mt-2">Planifiez un trajet pour voir l'analyse détaillée.</p>
       </div>
 
       <app-prediction-results [prediction]="currentPrediction"></app-prediction-results>
 
-      <div class="mt-4">
+      <div class="mt-4" *ngIf="currentPrediction">
         <div class="alert alert-info">
           <h6 class="alert-heading"><i class="bi bi-lightbulb"></i> Conseil IA</h6>
           <small>Partir 15 min plus tard réduirait votre temps de trajet de 20%.</small>

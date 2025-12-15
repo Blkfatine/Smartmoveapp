@@ -1,3 +1,4 @@
+
 import { Component, OnInit, AfterViewInit, OnDestroy, inject } from '@angular/core';
 import * as L from 'leaflet';
 import 'leaflet.heat'; // Import heat plugin
@@ -12,6 +13,11 @@ import { Subscription } from 'rxjs';
     #map {
       height: 600px;
       width: 100%;
+      border-radius: 8px;
+    }
+    ::ng-deep .custom-div-icon {
+        background: transparent;
+        border: none;
     }
   `]
 })
@@ -104,23 +110,52 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     private initLayers(): void {
-        this.trafficLayer = L.layerGroup().addTo(this.map); // Active by default
-        this.weatherLayer = L.layerGroup();
+        // 1. Traffic Layer (MOCKED VISUALS)
+        this.trafficLayer = L.layerGroup().addTo(this.map);
 
-        // Mock Heatmap Data (Casablanca implementation)
+        // Simulate heavy traffic (Red Polylines)
+        const congestionRoutes = [
+            [[33.57, -7.60], [33.58, -7.59]],
+            [[33.59, -7.61], [33.585, -7.605]]
+        ];
+
+        congestionRoutes.forEach(route => {
+            L.polyline(route as L.LatLngExpression[], { color: 'red', weight: 5, opacity: 0.7 })
+                .bindPopup('Traffic Dense: Vitesse moy. 15km/h')
+                .addTo(this.trafficLayer);
+        });
+
+        // 2. Weather Layer (MOCKED VISUALS)
+        this.weatherLayer = L.layerGroup();
+        // Custom simple icons (using DivIcon to simulate emoji markers)
+        const rainIcon = L.divIcon({
+            html: '<div style="font-size: 24px;">🌧️</div>',
+            className: 'custom-div-icon',
+            iconSize: [30, 30]
+        });
+
+        L.marker([33.58, -7.62], { icon: rainIcon }).bindPopup('Averse locale').addTo(this.weatherLayer);
+        L.marker([33.56, -7.58], { icon: rainIcon }).bindPopup('Pluie légère').addTo(this.weatherLayer);
+
+        // 3. Heatmap Layer (MOCKED VISUALS)
         const heatPoints: [number, number, number][] = [];
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 300; i++) {
             heatPoints.push([
-                33.5731 + (Math.random() - 0.5) * 0.1,
-                -7.5898 + (Math.random() - 0.5) * 0.1,
-                Math.random()
+                33.5731 + (Math.random() - 0.5) * 0.08,
+                -7.5898 + (Math.random() - 0.5) * 0.08,
+                Math.random() * 0.8 // Intensity
             ]);
         }
 
         // @ts-ignore
-        this.heatLayer = L.heatLayer(heatPoints, { radius: 25 });
+        this.heatLayer = L.heatLayer(heatPoints, { radius: 20, blur: 15, maxZoom: 17 });
 
-        // Mock Weather (Clouds/Rain icons)
-        // Ideally handled via API, static for now
+        // 4. Incidents (MOCKED - Extra Layer added to traffic)
+        const accidentIcon = L.divIcon({
+            html: '<div style="font-size: 24px;">⚠️</div>',
+            className: 'custom-div-icon',
+            iconSize: [30, 30]
+        });
+        L.marker([33.575, -7.595], { icon: accidentIcon }).bindPopup('Accident: 2 voies bloquées').addTo(this.trafficLayer);
     }
 }
