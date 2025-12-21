@@ -57,4 +57,11 @@ public class EnrichedPrediction {
     // Incident details
     private int incidentCount;
     private String incidentSeverity;
+
+    // Route Geometry
+    private List<Object> routeGeometry; // List of {lat, lon} points
+
+    // Alternatives
+    private List<RouteOption> alternativeRoutes;
+    private RouteOption recommendedRoute;
 }

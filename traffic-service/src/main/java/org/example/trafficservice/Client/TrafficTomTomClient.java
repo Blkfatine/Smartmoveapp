@@ -29,7 +29,10 @@ public class TrafficTomTomClient {
 
     public String getRoute(String start, String end) {
         String url = "https://api.tomtom.com/routing/1/calculateRoute/" + start + ":" + end + "/json"
-                + "?key=" + config.getApiKey();
+                + "?key=" + config.getApiKey()
+                + "&maxAlternatives=2"
+                + "&routeRepresentation=polyline"
+                + "&traffic=true"; // Explicitly enable traffic for accurate delay info on alternatives
         return restTemplate.getForObject(url, String.class);
     }
 }

@@ -76,30 +76,62 @@ public class TrafficServiceImpl implements TrafficService {
         Map<String, Object> result = new HashMap<>();
         try {
             JsonNode root = objectMapper.readTree(json);
-            JsonNode summary = root.path("routes").get(0).path("summary");
+            JsonNode routesNode = root.path("routes");
 
-            int travelTimeInSeconds = summary.path("travelTimeInSeconds").asInt();
-            int lengthInMeters = summary.path("lengthInMeters").asInt();
-            int trafficDelayInSeconds = summary.path("trafficDelayInSeconds").asInt();
+            if (routesNode.isArray() && size(routesNode) > 0) {
+                // Main Route (Best/First)
+                JsonNode mainRoute = routesNode.get(0);
+                mapRouteDetails(mainRoute, result); // Map main route to top-level for backward compatibility
 
-            result.put("durationMinutes", travelTimeInSeconds / 60);
-            result.put("distanceKm", lengthInMeters / 1000.0);
-            result.put("trafficDelayMinutes", trafficDelayInSeconds / 60);
-
-            // Determine Risk Level based on traffic delay ratio
-            double delayRatio = (double) trafficDelayInSeconds / travelTimeInSeconds;
-            String risk = "LOW";
-            if (delayRatio > 0.2)
-                risk = "HIGH";
-            else if (delayRatio > 0.1)
-                risk = "MEDIUM";
-
-            result.put("riskLevel", risk);
+                // Alternatives
+                if (size(routesNode) > 1) {
+                    java.util.List<Map<String, Object>> alternatives = new java.util.ArrayList<>();
+                    for (int i = 1; i < size(routesNode); i++) {
+                        Map<String, Object> altMap = new HashMap<>();
+                        mapRouteDetails(routesNode.get(i), altMap);
+                        alternatives.add(altMap);
+                    }
+                    result.put("alternatives", alternatives);
+                }
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
             result.put("error", "Parsing failed");
         }
         return result;
+    }
+
+    private int size(JsonNode node) {
+        return node == null ? 0 : node.size();
+    }
+
+    private void mapRouteDetails(JsonNode route, Map<String, Object> map) {
+        JsonNode summary = route.path("summary");
+
+        int travelTime = summary.path("travelTimeInSeconds").asInt();
+        int length = summary.path("lengthInMeters").asInt();
+        int delay = summary.path("trafficDelayInSeconds").asInt();
+
+        map.put("durationMinutes", travelTime / 60.0);
+        map.put("distanceKm", length / 1000.0);
+        map.put("trafficDelayMinutes", delay / 60.0);
+
+        // Geometry
+        JsonNode legs = route.path("legs");
+        if (legs.isArray() && legs.size() > 0) {
+            JsonNode points = legs.get(0).path("points");
+            map.put("routeGeometry", objectMapper.convertValue(points, List.class));
+        }
+
+        // Risk
+        double ratio = (double) delay / travelTime;
+        String risk = "LOW";
+        if (delay > 300 && ratio > 0.2)
+            risk = "HIGH"; // > 5 min delay AND > 20%
+        else if (delay > 180 && ratio > 0.1)
+            risk = "MEDIUM"; // > 3 min delay AND > 10%
+
+        map.put("riskLevel", risk);
     }
 }

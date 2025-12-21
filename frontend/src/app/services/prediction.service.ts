@@ -34,6 +34,7 @@ export interface Prediction {
     windSpeed: number;
     incidentCount: number;
     incidentSeverity: string;
+    routeGeometry?: Array<{ latitude: number, longitude: number }>;
 }
 
 @Injectable({
@@ -99,6 +100,18 @@ export class PredictionService {
      */
     analyzeTrip(origin: string, destination: string): Observable<Prediction> {
         return this.analyzeEnrichedTrip(origin, destination, '', '');
+    }
+
+    /**
+     * Start monitoring a trip for real-time updates
+     */
+    monitorTrip(origin: string, destination: string): Observable<any> {
+        return this.http.post(`${this.predictionApiUrl}/monitor`, {
+            origin,
+            destination,
+            departureDate: new Date().toISOString().split('T')[0],
+            departureTime: new Date().toTimeString().substring(0, 5)
+        });
     }
 
     private createFallbackPrediction(origin: string, destination: string, time: string): Prediction {

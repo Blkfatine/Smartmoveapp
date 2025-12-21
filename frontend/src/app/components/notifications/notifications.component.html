@@ -1,0 +1,64 @@
+<div class="notif-wrapper">
+    <!-- Background Decor -->
+    <div class="bg-shape shape-1"></div>
+    <div class="bg-shape shape-2"></div>
+
+    <div class="container">
+        <!-- Header Section -->
+        <header class="page-header animate-fade-in">
+            <div class="title-group">
+                <h1 class="page-title">🔔 Vos Notifications</h1>
+                <p class="page-subtitle">Restez informé des conditions de route et des prévisions en temps réel.</p>
+            </div>
+            <div class="live-status">
+                <span class="live-badge">
+                    <span class="pulse-dot"></span>
+                    En Direct
+                </span>
+            </div>
+        </header>
+
+        <!-- Notifications List -->
+        <div class="notif-container" *ngIf="notifications.length > 0; else emptyState">
+            <div *ngFor="let n of notifications; let i = index" class="notif-card animate-slide-up"
+                [style.animation-delay]="i * 0.1 + 's'" [class]="n.type.toLowerCase()">
+                <div class="card-glow"></div>
+                <div class="card-inner">
+                    <div class="status-indicator"></div>
+
+                    <div class="icon-section">
+                        <span class="type-icon" *ngIf="n.type === 'TRAFFIC'">🚧</span>
+                        <span class="type-icon" *ngIf="n.type === 'WEATHER'">🌧️</span>
+                        <span class="type-icon" *ngIf="n.type === 'INCIDENT'">⚠️</span>
+                    </div>
+
+                    <div class="content-section">
+                        <div class="card-meta">
+                            <span class="type-badge" [class]="n.type.toLowerCase()">{{ n.type }}</span>
+                            <span class="timestamp">{{ n.timestamp | date:'dd MMM, HH:mm' }}</span>
+                        </div>
+                        <h3 class="notif-title">{{ n.title }}</h3>
+                        <p class="notif-message">{{ n.message }}</p>
+                    </div>
+
+                    <div class="action-section">
+                        <button class="detail-btn">Détails</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <ng-template #emptyState>
+            <div class="empty-box animate-fade-in delay-2">
+                <div class="empty-icon-wrapper">
+                    <span class="empty-stars">✨</span>
+                    <div class="ia-pulse"></div>
+                </div>
+                <h3 class="empty-title">Aucune notification</h3>
+                <p class="empty-text">Tout est calme sur vos trajets. Votre IA de mobilité veille sur vous.</p>
+                <button class="refresh-btn" (click)="ngOnInit()">Actualiser</button>
+            </div>
+        </ng-template>
+    </div>
+</div>

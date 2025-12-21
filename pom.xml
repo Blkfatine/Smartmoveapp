@@ -20,6 +20,17 @@
     <developers>
         <developer/>
     </developers>
+    <packaging>pom</packaging>
+    <modules>
+        <module>discovery-service</module>
+        <module>gateway-service</module>
+        <module>traffic-service</module>
+        <module>meteo-service</module>
+        <module>incident-service</module>
+        <module>prediction-service</module>
+        <module>notification-service</module>
+        <module>user-service</module>
+    </modules>
     <scm>
         <connection/>
         <developerConnection/>

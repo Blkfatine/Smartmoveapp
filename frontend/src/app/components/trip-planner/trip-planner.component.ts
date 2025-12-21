@@ -79,11 +79,20 @@ import { FormsModule } from '@angular/forms';
           <button type="button" (click)="setEveningPeak()" [class.active]="isEveningPeak">🌆 18h00</button>
         </div>
 
-        <!-- Submit -->
-        <button type="submit" class="submit-btn" [disabled]="!origin || !destination || isLoading">
-          <span *ngIf="!isLoading">🔍 Analyser</span>
-          <span *ngIf="isLoading">⏳ Analyse...</span>
-        </button>
+        <!-- Action Buttons -->
+        <div class="actions">
+          <button type="submit" class="submit-btn" [disabled]="!origin || !destination || isLoading">
+            <span *ngIf="!isLoading">🔍 Analyser</span>
+            <span *ngIf="isLoading">⏳ Analyse...</span>
+          </button>
+          
+          <button type="button" class="monitor-btn" 
+                  [disabled]="!origin || !destination" 
+                  (click)="onMonitor()"
+                  title="Recevoir des alertes si la durée change">
+            🔔 M'alerter
+          </button>
+        </div>
 
       </form>
 
@@ -312,6 +321,34 @@ import { FormsModule } from '@angular/forms';
       background: #e2e8f0;
     }
 
+    /* Actions */
+    .actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .monitor-btn {
+        padding: 14px;
+        background: #f59e0b; /* Amber for alerts */
+        border: none;
+        border-radius: 10px;
+        color: white;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+        flex: 0 0 auto;
+    }
+
+    .monitor-btn:hover:not(:disabled) {
+        background: #d97706;
+    }
+
+    .monitor-btn:disabled {
+        background: #cbd5e1;
+        cursor: not-allowed;
+    }
+
     /* Info Note */
     .info-note {
       margin-top: 16px;
@@ -327,6 +364,7 @@ import { FormsModule } from '@angular/forms';
 export class TripPlannerComponent {
   @Input() isLoading = false;
   @Output() planTrip = new EventEmitter<{ origin: string, destination: string, date: string, time: string }>();
+  @Output() monitorTrip = new EventEmitter<{ origin: string, destination: string }>();
 
   origin = '';
   destination = '';
@@ -386,6 +424,16 @@ export class TripPlannerComponent {
         date: this.departureDate,
         time: this.departureTime
       });
+    }
+  }
+
+  onMonitor() {
+    if (this.origin && this.destination) {
+      this.monitorTrip.emit({
+        origin: this.origin,
+        destination: this.destination
+      });
+      alert('Monitoring activé ! Vous serez notifié si la durée change.');
     }
   }
 

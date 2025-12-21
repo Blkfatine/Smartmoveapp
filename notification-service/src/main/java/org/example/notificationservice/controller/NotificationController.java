@@ -16,12 +16,30 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @CrossOrigin(origins = "http://localhost:4200")
 public class NotificationController {
 
+    @Autowired
+    private org.example.notificationservice.repository.NotificationRepository notificationRepository;
+
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
     private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
-    public void sendNotification(String message) {
+    @GetMapping
+    public java.util.List<org.example.notificationservice.model.Notification> getHistory() {
+        return notificationRepository.findAll();
+    }
+
+    public void sendNotification(org.example.notificationservice.model.Notification notification) {
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(notification);
+        } catch (Exception e) {
+            json = "{\"title\":\"Error\", \"message\":\"Serialization failed\"}";
+        }
+
         for (SseEmitter emitter : emitters) {
             try {
-                emitter.send(SseEmitter.event().data(message));
+                emitter.send(SseEmitter.event().data(json));
             } catch (IOException e) {
                 emitters.remove(emitter);
             }
@@ -35,6 +53,13 @@ public class NotificationController {
 
         emitter.onCompletion(() -> emitters.remove(emitter));
         emitter.onTimeout(() -> emitters.remove(emitter));
+
+        // Send a test event to confirm connection
+        try {
+            emitter.send(SseEmitter.event().name("connect").data("Connected to SmartMove Real-Time"));
+        } catch (IOException e) {
+            emitters.remove(emitter);
+        }
 
         return emitter;
     }

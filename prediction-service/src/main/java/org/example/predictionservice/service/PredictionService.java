@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.predictionservice.model.EnrichedPrediction;
 import org.example.predictionservice.model.ImpactFactors;
+import org.example.predictionservice.model.WeatherImpactAnalysis;
 import org.example.predictionservice.model.Prediction;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,6 +26,7 @@ public class PredictionService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Random random = new Random();
+    private final WeatherImpactService weatherImpactService;
 
     // Service URLs (via Eureka)
     private static final String TRAFFIC_SERVICE_URL = "http://TRAFFIC-SERVICE/api/traffic/route?origin={origin}&destination={destination}";
@@ -128,6 +130,17 @@ public class PredictionService {
         LOCATION_COORDS.put("agadir", new double[] { 30.4278, -9.5981 });
         LOCATION_COORDS.put("el jadida", new double[] { 33.2549, -8.5074 });
         LOCATION_COORDS.put("mohammedia", new double[] { 33.6861, -7.3833 });
+    }
+
+    /**
+     * Wrapper for prediction using request object
+     */
+    public EnrichedPrediction predictEnriched(org.example.predictionservice.model.PredictionRequest request) {
+        return analyzeEnrichedTrip(
+                request.getOrigin(),
+                request.getDestination(),
+                request.getDepartureDate(),
+                request.getDepartureTime());
     }
 
     /**
@@ -433,33 +446,42 @@ public class PredictionService {
         double distanceKm = getDoubleValue(routeData, "distanceKm", 10.0);
         double trafficDelay = getDoubleValue(routeData, "trafficDelayMinutes", 0.0);
 
-        // Weather analysis
-        String weatherCondition = extractWeatherCondition(weatherData);
+        // Weather analysis - DELEGATED TO SERVICE
+        WeatherImpactAnalysis weatherAnalysis = weatherImpactService.analyzeImpact(weatherData, departureTime);
+        double weatherModifier = weatherAnalysis.getImpactModifier();
+
+        // Extract basic data for other parts
+        String weatherCondition = extractWeatherCondition(weatherData); // Keep for display
         double temperature = extractTemperature(weatherData);
         double visibility = extractVisibility(weatherData);
         double windSpeed = extractWindSpeed(weatherData);
 
-        // Calculate impact modifiers (more moderate)
+        // Calculate other modifiers
         double trafficModifier = calculateTrafficModifier(trafficDelay, baseDuration);
-        double weatherModifier = calculateWeatherModifier(weatherCondition, visibility, windSpeed);
         double incidentModifier = calculateIncidentModifier(incidents);
-        double peakHourModifier = isPeakHour ? 0.15 : 0.0; // Reduced from 0.25
+        double peakHourModifier = isPeakHour ? 0.15 : 0.0;
 
         // Calculate final duration
         double totalModifier = 1 + trafficModifier + weatherModifier + incidentModifier + peakHourModifier;
         double predictedDuration = baseDuration * totalModifier;
 
-        // Calculate impact percentages
-        ImpactFactors impactFactors = calculateImpactFactors(trafficModifier, weatherModifier, incidentModifier,
+        // Calculate impact percentages using the explicit weather value
+        ImpactFactors impactFactors = calculateImpactFactors(trafficModifier, weatherAnalysis.getImpactPercentage(),
+                incidentModifier,
                 peakHourModifier);
 
         // Calculate risk
         int riskScore = calculateRiskScore(trafficModifier, weatherModifier, incidentModifier, isPeakHour);
         String riskLevel = getRiskLevel(riskScore);
 
-        // Generate explanations
+        // Generate explanations (Append weather specific explanation)
         List<String> explanationPoints = generateExplanations(
                 trafficDelay, weatherCondition, incidents.size(), isPeakHour, visibility);
+
+        if (weatherAnalysis.getExplanation() != null
+                && !weatherAnalysis.getExplanation().equals("Conditions optimales.")) {
+            explanationPoints.add("🌧️ Météo: " + weatherAnalysis.getExplanation());
+        }
 
         // Calculate arrival time
         String arrivalTime = calculateArrivalTime(departureTime, predictedDuration);
@@ -498,6 +520,7 @@ public class PredictionService {
                 .arrivalTime(arrivalTime)
                 .departureTime(departureTime != null ? departureTime
                         : LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")))
+                .routeGeometry((List<Object>) routeData.get("routeGeometry"))
                 .build();
     }
 
@@ -544,19 +567,25 @@ public class PredictionService {
      * Calculate impact factors as percentages
      * Always shows meaningful percentages by adding baseline values
      */
-    private ImpactFactors calculateImpactFactors(double trafficMod, double weatherMod, double incidentMod,
+    private ImpactFactors calculateImpactFactors(double trafficMod, int weatherPercentage, double incidentMod,
             double peakMod) {
 
         // Add baseline values so all factors have some representation
         // This makes the display more informative even when some factors are minimal
         double baseTraffic = 0.15; // Traffic always has some base impact
-        double baseWeather = 0.08; // Weather is always a factor
+        // Weather is now EXPLICIT passed as percentage (e.g. 15), convert to ratio for
+        // total calc if needed
+        // But here we want relative weight.
+
         double baseIncident = 0.05; // Potential for incidents
         double basePeak = 0.07; // Time of day matters
 
         // Combine actual modifiers with baseline
         double totalTraffic = baseTraffic + trafficMod;
-        double totalWeather = baseWeather + weatherMod;
+        // Weather input is already a percentage (e.g. 15). We treat it as 0.15 for this
+        // weight calculation
+        double totalWeather = (weatherPercentage / 100.0) + 0.05; // Add small baseline
+
         double totalIncident = baseIncident + incidentMod;
         double totalPeak = basePeak + peakMod;
 
@@ -624,37 +653,6 @@ public class PredictionService {
             return 0;
         double ratio = trafficDelay / baseDuration;
         return Math.min(ratio, 0.3); // Cap at 30% increase
-    }
-
-    private double calculateWeatherModifier(String condition, double visibility, double windSpeed) {
-        double modifier = 0.0;
-
-        if (condition != null) {
-            String lowerCondition = condition.toLowerCase();
-            if (lowerCondition.contains("rain") || lowerCondition.contains("pluie")
-                    || lowerCondition.contains("showers")) {
-                modifier += 0.10;
-            } else if (lowerCondition.contains("fog") || lowerCondition.contains("brouillard")) {
-                modifier += 0.20;
-            } else if (lowerCondition.contains("storm") || lowerCondition.contains("thunder")
-                    || lowerCondition.contains("orage")) {
-                modifier += 0.25;
-            } else if (lowerCondition.contains("snow") || lowerCondition.contains("neige")) {
-                modifier += 0.30;
-            } else if (lowerCondition.contains("drizzle") || lowerCondition.contains("bruine")) {
-                modifier += 0.05;
-            }
-        }
-
-        if (visibility < 3000 && visibility > 0) {
-            modifier += (3000 - visibility) / 3000 * 0.15;
-        }
-
-        if (windSpeed > 60) {
-            modifier += (windSpeed - 60) / 100 * 0.08;
-        }
-
-        return Math.min(modifier, 0.35);
     }
 
     private double calculateIncidentModifier(List<Map<String, Object>> incidents) {

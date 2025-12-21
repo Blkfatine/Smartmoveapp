@@ -5,6 +5,8 @@ import org.example.predictionservice.model.EnrichedPrediction;
 import org.example.predictionservice.model.Prediction;
 import org.example.predictionservice.model.PredictionRequest;
 import org.example.predictionservice.service.PredictionService;
+import org.example.predictionservice.service.TripMonitoringService;
+import org.example.predictionservice.entity.MonitoredTrip;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +17,19 @@ import org.springframework.web.bind.annotation.*;
 public class PredictionController {
 
     private final PredictionService predictionService;
+    private final TripMonitoringService monitoringService;
+
+    @PostMapping("/predict")
+    public EnrichedPrediction predictEnriched(@RequestBody PredictionRequest request) {
+        return predictionService.predictEnriched(request);
+    }
+
+    @PostMapping("/monitor")
+    public MonitoredTrip monitorTrip(@RequestBody PredictionRequest request) {
+        // Using "userId" from request or generating a placeholder
+        String userId = "user-" + System.currentTimeMillis();
+        return monitoringService.startMonitoring(request.getOrigin(), request.getDestination(), userId);
+    }
 
     @GetMapping("/status")
     public String status() {

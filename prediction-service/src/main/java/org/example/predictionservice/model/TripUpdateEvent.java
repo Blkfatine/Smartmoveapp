@@ -9,9 +9,12 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class PredictionRequest {
+public class TripUpdateEvent {
+    private Long tripId;
+    private String userId;
+    private double oldDuration;
+    private double newDuration;
+    private String reason;
     private String origin;
     private String destination;
-    private String departureDate; // YYYY-MM-DD format
-    private String departureTime; // HH:mm format
 }

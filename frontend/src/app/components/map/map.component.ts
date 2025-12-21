@@ -1,4 +1,3 @@
-
 import { Component, OnInit, AfterViewInit, OnDestroy, inject } from '@angular/core';
 import * as L from 'leaflet';
 import 'leaflet.heat'; // Import heat plugin
@@ -31,6 +30,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     private trafficLayer!: L.LayerGroup;
     private heatLayer!: any; // L.heatLayer
     private weatherLayer!: L.LayerGroup;
+    private incidentsLayer!: L.LayerGroup;
 
     constructor() { }
 
@@ -65,6 +65,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         // Add Control
         const overlayMaps = {
             "Trafic Temps Réel": this.trafficLayer,
+            "Incidents": this.incidentsLayer,
             "Densité (Heatmap)": this.heatLayer,
             "Météo": this.weatherLayer
         };
@@ -78,84 +79,148 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     private updateMarkers(predictions: Prediction[]): void {
-        // Clear existing markers
+        // 1. Clear ALL existing dynamic markers
         this.markers.forEach(m => this.map.removeLayer(m));
         this.markers = [];
 
-        predictions.forEach(p => {
-            // For demo, we'll just put a marker at a random spot near Casablanca if coords aren't provided
-            // In real app, origin/dest would be coordinates or geocoded
-            const lat = 33.5731 + (Math.random() - 0.5) * 0.05;
-            const lng = -7.5898 + (Math.random() - 0.5) * 0.05;
-
-            const color = p.riskLevel === 'HIGH' ? 'red' : 'green';
-
-            // Custom icon based on risk
-            const icon = L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color:${color}; width: 10px; height: 10px; border-radius: 50%;"></div>`,
-                iconSize: [10, 10],
-                iconAnchor: [5, 5]
-            });
-
-            const marker = L.marker([lat, lng]).addTo(this.map);
-            marker.bindPopup(`
-        <b>Trajet: ${p.origin} -> ${p.destination}</b><br>
-        Durée: ${p.predictedDuration.toFixed(0)} min<br>
-        Risque: <span style="color:${color}">${p.riskLevel}</span>
-      `).openPopup();
-
-            this.markers.push(marker);
+        this.map.eachLayer((layer: any) => {
+            if (layer._routeLine) {
+                this.map.removeLayer(layer);
+            }
         });
+
+        this.weatherLayer.clearLayers();
+        this.incidentsLayer.clearLayers();
+
+        const routeFeatureGroup = L.featureGroup();
+
+        predictions.forEach(p => {
+            // A. Draw Polyline (Route)
+            if (p.routeGeometry && p.routeGeometry.length > 0) {
+                const routePoints = p.routeGeometry.map((pt: any) => [pt.latitude, pt.longitude] as [number, number]);
+                const routeColor = p.riskLevel === 'HIGH' ? '#ef4444' : (p.riskLevel === 'MEDIUM' ? '#f59e0b' : '#3b82f6');
+
+                const polyline = L.polyline(routePoints, {
+                    color: routeColor,
+                    weight: 6,
+                    opacity: 0.8,
+                    lineJoin: 'round'
+                }).addTo(this.map);
+
+                (polyline as any)._routeLine = true;
+                routeFeatureGroup.addLayer(polyline);
+            }
+
+            // B. Add Markers for Origin and Destination
+            let startLat = 33.5731, startLng = -7.5898;
+            let endLat = 33.5731, endLng = -7.5898;
+
+            if (p.routeGeometry && p.routeGeometry.length > 0) {
+                const start = p.routeGeometry[0] as any;
+                const end = p.routeGeometry[p.routeGeometry.length - 1] as any;
+                startLat = start.latitude;
+                startLng = start.longitude;
+                endLat = end.latitude;
+                endLng = end.longitude;
+            }
+
+            // Origin Marker
+            const originIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color:#10b981; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.2);"></div>`,
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+            });
+            const originMarker = L.marker([startLat, startLng], { icon: originIcon }).bindPopup(`<b>Départ:</b> ${p.origin}`).addTo(this.map);
+            routeFeatureGroup.addLayer(originMarker);
+
+            // Destination Marker
+            const destIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color:#ef4444; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.2);"></div>`,
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+            });
+            const destMarker = L.marker([endLat, endLng], { icon: destIcon }).bindPopup(`<b>Arrivée:</b> ${p.destination}`).addTo(this.map);
+            this.markers.push(destMarker);
+            routeFeatureGroup.addLayer(destMarker);
+
+            // C. Add Dynamic Weather Markers
+            if (p.weatherCondition) {
+                const weatherIcon = L.divIcon({
+                    html: `<div style="font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">${this.getWeatherEmoji(p.weatherCondition)}</div>`,
+                    className: 'custom-div-icon',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                L.marker([startLat, startLng], { icon: weatherIcon, zIndexOffset: 1000 })
+                    .bindPopup(`<b>Météo au départ:</b> ${p.weatherCondition} (${p.temperature}°C)`)
+                    .addTo(this.weatherLayer);
+
+                if (p.distanceKm > 10) {
+                    L.marker([endLat, endLng], { icon: weatherIcon, zIndexOffset: 1000 })
+                        .bindPopup(`<b>Météo à l'arrivée:</b> ${p.weatherCondition} (${p.temperature}°C)`)
+                        .addTo(this.weatherLayer);
+                }
+            }
+
+            // D. Add Dynamic Incidents
+            if (p.hasIncidents && p.routeGeometry && p.routeGeometry.length > 5) {
+                const midPoint = p.routeGeometry[Math.floor(p.routeGeometry.length / 2)];
+                const accidentIcon = L.divIcon({
+                    html: '<div style="font-size: 28px; filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));">⚠️</div>',
+                    className: 'custom-div-icon',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                L.marker([midPoint.latitude, midPoint.longitude], { icon: accidentIcon, zIndexOffset: 1100 })
+                    .bindPopup(`<b>Incident détecté:</b> ${p.incidentCount} événement(s) en temps réel.`)
+                    .addTo(this.incidentsLayer);
+            }
+        });
+
+        // 2. Fit bounds to show everything
+        if (routeFeatureGroup.getLayers().length > 0) {
+            this.map.fitBounds(routeFeatureGroup.getBounds(), { padding: [50, 50] });
+        }
     }
 
     private initLayers(): void {
-        // 1. Traffic Layer (MOCKED VISUALS)
         this.trafficLayer = L.layerGroup().addTo(this.map);
 
-        // Simulate heavy traffic (Red Polylines)
-        const congestionRoutes = [
-            [[33.57, -7.60], [33.58, -7.59]],
-            [[33.59, -7.61], [33.585, -7.605]]
-        ];
-
-        congestionRoutes.forEach(route => {
-            L.polyline(route as L.LatLngExpression[], { color: 'red', weight: 5, opacity: 0.7 })
-                .bindPopup('Traffic Dense: Vitesse moy. 15km/h')
+        // Decoration: background traffic feel
+        const backgroundTrafic = [[[33.57, -7.60], [33.58, -7.59]], [[33.59, -7.61], [33.585, -7.605]]];
+        backgroundTrafic.forEach(route => {
+            L.polyline(route as L.LatLngExpression[], { color: 'red', weight: 4, opacity: 0.4 })
+                .bindPopup('Trafic historique élevé')
                 .addTo(this.trafficLayer);
         });
 
-        // 2. Weather Layer (MOCKED VISUALS)
-        this.weatherLayer = L.layerGroup();
-        // Custom simple icons (using DivIcon to simulate emoji markers)
-        const rainIcon = L.divIcon({
-            html: '<div style="font-size: 24px;">🌧️</div>',
-            className: 'custom-div-icon',
-            iconSize: [30, 30]
-        });
+        this.weatherLayer = L.layerGroup().addTo(this.map);
+        this.incidentsLayer = L.layerGroup().addTo(this.map);
 
-        L.marker([33.58, -7.62], { icon: rainIcon }).bindPopup('Averse locale').addTo(this.weatherLayer);
-        L.marker([33.56, -7.58], { icon: rainIcon }).bindPopup('Pluie légère').addTo(this.weatherLayer);
-
-        // 3. Heatmap Layer (MOCKED VISUALS)
+        // Heatmap
         const heatPoints: [number, number, number][] = [];
         for (let i = 0; i < 300; i++) {
             heatPoints.push([
                 33.5731 + (Math.random() - 0.5) * 0.08,
                 -7.5898 + (Math.random() - 0.5) * 0.08,
-                Math.random() * 0.8 // Intensity
+                Math.random() * 0.8
             ]);
         }
-
         // @ts-ignore
         this.heatLayer = L.heatLayer(heatPoints, { radius: 20, blur: 15, maxZoom: 17 });
+    }
 
-        // 4. Incidents (MOCKED - Extra Layer added to traffic)
-        const accidentIcon = L.divIcon({
-            html: '<div style="font-size: 24px;">⚠️</div>',
-            className: 'custom-div-icon',
-            iconSize: [30, 30]
-        });
-        L.marker([33.575, -7.595], { icon: accidentIcon }).bindPopup('Accident: 2 voies bloquées').addTo(this.trafficLayer);
+    private getWeatherEmoji(condition: string): string {
+        const c = (condition || '').toLowerCase();
+        if (c.includes('rain') || c.includes('pluie')) return '🌧️';
+        if (c.includes('cloud') || c.includes('overcast')) return '☁️';
+        if (c.includes('fog') || c.includes('brouillard')) return '🌫️';
+        if (c.includes('storm') || c.includes('orage')) return '⛈️';
+        if (c.includes('snow') || c.includes('neige')) return '❄️';
+        return '☀️';
     }
 }
