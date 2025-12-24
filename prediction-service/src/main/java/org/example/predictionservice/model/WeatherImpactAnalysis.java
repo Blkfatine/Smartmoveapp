@@ -1,9 +1,6 @@
 package org.example.predictionservice.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+
 
 /**
  * Structured analysis of weather impact on travel.

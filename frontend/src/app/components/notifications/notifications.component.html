@@ -42,8 +42,52 @@
                     </div>
 
                     <div class="action-section">
-                        <button class="detail-btn">Détails</button>
+                        <button class="detail-btn" (click)="openDetails(n)">Détails</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Modal Overlay -->
+        <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+            <div class="modal-card animate-zoom-in" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                    <div class="type-pill" [class]="selectedNotification?.type?.toLowerCase()">
+                        {{ selectedNotification?.type }}
+                    </div>
+                    <button class="close-icon" (click)="closeModal()">×</button>
+                </div>
+
+                <div class="modal-body" *ngIf="selectedNotification">
+                    <div class="modal-main-info">
+                        <h2>{{ selectedNotification.title }}</h2>
+                        <p class="time">{{ selectedNotification.timestamp | date:'HH:mm - dd MMMM yyyy' }}</p>
+                    </div>
+
+                    <div class="map-preview" *ngIf="selectedNotification.details?.mapUrl">
+                        <img [src]="selectedNotification.details?.mapUrl" alt="Map snapshot">
+                        <div class="map-overlay">
+                            <span>IA Analysis View</span>
+                        </div>
+                    </div>
+
+                    <div class="ai-suggestion">
+                        <div class="ai-header">
+                            <span class="ai-icon">🤖</span>
+                            <h4>Analyse & Recommandation IA</h4>
+                        </div>
+                        <p>{{ selectedNotification.details?.suggestion || 'Analyse en cours...' }}</p>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-item" *ngFor="let metric of selectedNotification.details?.metrics">
+                            <span class="metric-val">{{ metric }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="action-primary" (click)="closeModal()">J'ai compris</button>
                 </div>
             </div>
         </div>

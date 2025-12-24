@@ -2,7 +2,7 @@ package org.example.trafficservice.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+
 import org.example.trafficservice.Client.TrafficTomTomClient;
 import org.example.trafficservice.model.Traffic;
 import org.example.trafficservice.repository.TrafficRepository;
@@ -13,13 +13,19 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 public class TrafficServiceImpl implements TrafficService {
 
     private final TrafficRepository trafficRepository;
     private final TrafficTomTomClient tomTomClient;
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
+
+    public TrafficServiceImpl(TrafficRepository trafficRepository, TrafficTomTomClient tomTomClient, org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate, ObjectMapper objectMapper) {
+        this.trafficRepository = trafficRepository;
+        this.tomTomClient = tomTomClient;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public List<Traffic> getAllTraffic() {

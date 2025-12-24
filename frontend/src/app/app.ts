@@ -1,7 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet, RouterModule } from '@angular/router';
+import { RouterOutlet, RouterModule, Router, NavigationEnd } from '@angular/router';
 import { AuthService } from './services/auth.service';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -9,8 +10,8 @@ import { AuthService } from './services/auth.service';
   imports: [CommonModule, RouterOutlet, RouterModule],
   template: `
     <div class="app-shell">
-      <!-- Global Header - Only visible when logged in -->
-      <header class="header-bar" *ngIf="authService.isLoggedIn()">
+      <!-- Global Header - Only visible when logged in AND NOT on landing page -->
+      <header class="header-bar" *ngIf="showNavigation()">
         <div class="logo" routerLink="/home" style="cursor: pointer">
           <span class="logo-icon">🚗</span>
           <span class="logo-text">SmartMove</span>
@@ -24,17 +25,13 @@ import { AuthService } from './services/auth.service';
 
         <div class="header-info">
           <span class="user-greeting" *ngIf="username">👤 {{ username }}</span>
-          <span class="status-badge">
-            <span class="status-dot"></span>
-            En Direct
-          </span>
           <span class="time-display">{{ currentTime }}</span>
           <button class="logout-btn" (click)="logout()">Déconnexion</button>
         </div>
       </header>
 
       <!-- Main Router Content -->
-      <main class="shell-content" [class.with-header]="authService.isLoggedIn()">
+      <main class="shell-content" [class.with-header]="showNavigation()">
         <router-outlet></router-outlet>
       </main>
     </div>
@@ -98,15 +95,6 @@ import { AuthService } from './services/auth.service';
     }
     .logout-btn:hover { background: rgba(255,255,255,0.25); }
 
-    .status-badge {
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 14px; background: rgba(255,255,255,0.15);
-      border-radius: 20px; font-size: 13px;
-    }
-
-    .status-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
     .time-display {
       font-size: 14px; font-weight: 500; padding: 6px 14px;
       background: rgba(255,255,255,0.1); border-radius: 8px;
@@ -116,8 +104,12 @@ import { AuthService } from './services/auth.service';
       flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: hidden; /* This is crucial to prevent the whole page from scrolling */
+      overflow: hidden;
       background: #f0f4f8;
+    }
+
+    .shell-content.with-header {
+      /* Adjust if needed when header is visible */
     }
   `]
 })
@@ -125,17 +117,31 @@ export class App implements OnInit, OnDestroy {
   currentTime: string = '';
   username: string | null = null;
   private timeInterval: any;
+  private currentUrl: string = '';
 
-  constructor(public authService: AuthService) { }
+  constructor(public authService: AuthService, private router: Router) {
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe((event: any) => {
+      this.currentUrl = event.urlAfterRedirects;
+    });
+  }
 
   ngOnInit() {
     this.updateTime();
     this.timeInterval = setInterval(() => {
+      this.updateTime();
       if (this.authService.isLoggedIn()) {
-        this.updateTime();
         if (!this.username) this.username = this.authService.getUsername();
       }
     }, 1000);
+  }
+
+  showNavigation(): boolean {
+    // Hide header on landing, login, and register pages to keep them clean
+    const hiddenRoutes = ['/', '/landing', '/login', '/register'];
+    const isHiddenRoute = hiddenRoutes.includes(this.currentUrl) || this.currentUrl === '';
+    return this.authService.isLoggedIn() && !isHiddenRoute;
   }
 
   updateTime() {

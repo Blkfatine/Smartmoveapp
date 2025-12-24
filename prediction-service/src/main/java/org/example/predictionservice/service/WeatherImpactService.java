@@ -1,6 +1,6 @@
 package org.example.predictionservice.service;
 
-import lombok.extern.slf4j.Slf4j;
+
 import org.example.predictionservice.model.WeatherImpactAnalysis;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +26,6 @@ import java.util.Map;
  * - **Wind**: High crosswinds destabilize vehicles, especially trucks, forcing
  * general traffic slowing for safety.
  */
-@Service
 @Service
 public class WeatherImpactService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(WeatherImpactService.class);

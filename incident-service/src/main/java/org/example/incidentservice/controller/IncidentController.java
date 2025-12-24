@@ -1,6 +1,6 @@
 package org.example.incidentservice.controller;
 
-import lombok.RequiredArgsConstructor;
+
 import org.example.incidentservice.model.Incident;
 import org.example.incidentservice.service.IncidentService;
 import org.springframework.web.bind.annotation.*;
@@ -9,10 +9,13 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/incidents")
-@RequiredArgsConstructor
 public class IncidentController {
 
     private final IncidentService incidentService;
+
+    public IncidentController(IncidentService incidentService) {
+        this.incidentService = incidentService;
+    }
 
     @GetMapping
     public List<Incident> getAll() {

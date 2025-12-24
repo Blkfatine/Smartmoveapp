@@ -121,7 +121,7 @@ export class WeeklyForecastComponent implements OnInit, OnChanges {
   loading = false;
   error: string | null = null;
 
-  constructor(private meteoService: MeteoService) {}
+  constructor(private meteoService: MeteoService) { }
 
   ngOnInit() {
     // If inputs are already available
@@ -132,7 +132,7 @@ export class WeeklyForecastComponent implements OnInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges) {
     if ((changes['lat'] || changes['lng']) && this.lat && this.lng) {
-        this.fetchForecast();
+      this.fetchForecast();
     }
   }
 
@@ -140,57 +140,57 @@ export class WeeklyForecastComponent implements OnInit, OnChanges {
     this.loading = true;
     this.error = null;
     this.meteoService.getWeeklyForecast(this.lat, this.lng).subscribe({
-        next: (data) => {
-            this.forecast = data;
-            this.processData(data);
-            this.loading = false;
-        },
-        error: (err) => {
-            console.error('Forecast error', err);
-            this.error = 'Prévisions indisponibles';
-            this.loading = false;
-        }
+      next: (data) => {
+        this.forecast = data;
+        this.processData(data);
+        this.loading = false;
+      },
+      error: (err: any) => {
+        console.error('Forecast error', err);
+        this.error = 'Prévisions indisponibles';
+        this.loading = false;
+      }
     });
   }
 
   private processData(data: WeeklyForecast) {
-      if (!data || !data.daily) return;
+    if (!data || !data.daily) return;
 
-      const daily = data.daily;
-      this.dailyForecasts = daily.time.map((time, index) => {
-          const date = new Date(time);
-          const dayName = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' }).format(date);
-          const code = daily.weathercode[index];
-          
-          return {
-              name: dayName,
-              icon: this.getWeatherIcon(code),
-              maxTemp: daily.temperature_2m_max[index],
-              minTemp: daily.temperature_2m_min[index],
-              rainProb: daily.precipitation_probability_max[index]
-          };
-      });
+    const daily = data.daily;
+    this.dailyForecasts = daily.time.map((time, index) => {
+      const date = new Date(time);
+      const dayName = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' }).format(date);
+      const code = daily.weathercode[index];
+
+      return {
+        name: dayName,
+        icon: this.getWeatherIcon(code),
+        maxTemp: daily.temperature_2m_max[index],
+        minTemp: daily.temperature_2m_min[index],
+        rainProb: daily.precipitation_probability_max[index]
+      };
+    });
   }
 
   private getWeatherIcon(code: number): string {
-      // WMO Weather interpretation codes (WW)
-      // 0: Clear sky
-      if (code === 0) return '☀️';
-      // 1-3: Mainly clear, partly cloudy, and overcast
-      if (code >= 1 && code <= 3) return '⛅';
-      // 45, 48: Fog
-      if (code === 45 || code === 48) return '🌫️';
-      // 51-55: Drizzle
-      if (code >= 51 && code <= 55) return '🌦️';
-      // 61-65: Rain
-      if (code >= 61 && code <= 65) return '🌧️';
-      // 71-77: Snow
-      if (code >= 71 && code <= 77) return '❄️';
-      // 80-82: Rain showers
-      if (code >= 80 && code <= 82) return '🌦️';
-      // 95-99: Thunderstorm
-      if (code >= 95 && code <= 99) return '⛈️';
-      
-      return '❓';
+    // WMO Weather interpretation codes (WW)
+    // 0: Clear sky
+    if (code === 0) return '☀️';
+    // 1-3: Mainly clear, partly cloudy, and overcast
+    if (code >= 1 && code <= 3) return '⛅';
+    // 45, 48: Fog
+    if (code === 45 || code === 48) return '🌫️';
+    // 51-55: Drizzle
+    if (code >= 51 && code <= 55) return '🌦️';
+    // 61-65: Rain
+    if (code >= 61 && code <= 65) return '🌧️';
+    // 71-77: Snow
+    if (code >= 71 && code <= 77) return '❄️';
+    // 80-82: Rain showers
+    if (code >= 80 && code <= 82) return '🌦️';
+    // 95-99: Thunderstorm
+    if (code >= 95 && code <= 99) return '⛈️';
+
+    return '❓';
   }
 }

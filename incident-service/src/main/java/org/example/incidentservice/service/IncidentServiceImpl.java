@@ -1,5 +1,5 @@
 package org.example.incidentservice.service;
-import lombok.RequiredArgsConstructor;
+
 import org.example.incidentservice.client.TomTomIncidentClient;
 import org.example.incidentservice.client.dto.TomTomIncident;
 import org.example.incidentservice.client.dto.TomTomResponse;
@@ -12,11 +12,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class IncidentServiceImpl implements IncidentService {
 
     private final IncidentRepository incidentRepository;
     private final TomTomIncidentClient tomTomIncidentClient;
+
+    public IncidentServiceImpl(IncidentRepository incidentRepository, TomTomIncidentClient tomTomIncidentClient) {
+        this.incidentRepository = incidentRepository;
+        this.tomTomIncidentClient = tomTomIncidentClient;
+    }
 
     @Override
     public List<Incident> getAll() {

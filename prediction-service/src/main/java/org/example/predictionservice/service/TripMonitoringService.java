@@ -1,9 +1,7 @@
 package org.example.predictionservice.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.example.predictionservice.entity.MonitoredTrip;
 import org.example.predictionservice.model.EnrichedPrediction;
+import org.example.predictionservice.entity.MonitoredTrip;
 import org.example.predictionservice.model.PredictionRequest;
 import org.example.predictionservice.model.TripUpdateEvent;
 import org.example.predictionservice.repository.MonitoredTripRepository;
@@ -15,19 +13,26 @@ import java.time.LocalTime;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class TripMonitoringService {
 
-    private final MonitoredTripRepository repository;
-    private final PredictionService predictionService;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TripMonitoringService.class);
+
+
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final MonitoredTripRepository tripRepository;
+    private final PredictionService predictionService;
+
+    public TripMonitoringService(KafkaTemplate<String, Object> kafkaTemplate, MonitoredTripRepository tripRepository, PredictionService predictionService) {
+        this.kafkaTemplate = kafkaTemplate;
+        this.tripRepository = tripRepository;
+        this.predictionService = predictionService;
+    }
 
     // Check every 60 seconds
     @Scheduled(fixedRate = 60000)
     public void checkTrips() {
         log.info("Checking monitored trips for updates...");
-        List<MonitoredTrip> activeTrips = repository.findByIsActiveTrue();
+        List<MonitoredTrip> activeTrips = tripRepository.findByIsActiveTrue();
 
         for (MonitoredTrip trip : activeTrips) {
             try {
@@ -52,7 +57,7 @@ public class TripMonitoringService {
 
                     // Update DB
                     trip.setLastDuration(newDuration);
-                    repository.save(trip);
+                    tripRepository.save(trip);
                 }
 
             } catch (Exception e) {
@@ -104,6 +109,7 @@ public class TripMonitoringService {
                         .origin(origin)
                         .destination(destination)
                         .departureTime(currentTime)
+                        .transportMode("driving")
                         .build());
 
         MonitoredTrip trip = MonitoredTrip.builder()
@@ -115,6 +121,6 @@ public class TripMonitoringService {
                 .isActive(true)
                 .build();
 
-        return repository.save(trip);
+        return tripRepository.save(trip);
     }
 }

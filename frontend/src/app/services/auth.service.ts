@@ -12,12 +12,16 @@ export class AuthService {
 
     constructor(private http: HttpClient, private router: Router) { }
 
+    register(user: any): Observable<any> {
+        return this.http.post(`${this.apiUrl}/register`, user);
+    }
+
     login(credentials: { username: string, password: string }): Observable<any> {
-        return this.http.post<{ token: string, username: string }>(`${this.apiUrl}/login`, credentials)
+        return this.http.post<{ token: string }>(`${this.apiUrl}/login`, credentials)
             .pipe(
                 tap(response => {
                     localStorage.setItem('token', response.token);
-                    localStorage.setItem('username', response.username);
+                    localStorage.setItem('username', credentials.username);
                 })
             );
     }
@@ -25,7 +29,7 @@ export class AuthService {
     logout() {
         localStorage.removeItem('token');
         localStorage.removeItem('username');
-        this.router.navigate(['/login']);
+        this.router.navigate(['/']);
     }
 
     isLoggedIn(): boolean {

@@ -4,12 +4,11 @@ package org.example.incidentservice.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
-import lombok.Data;
+
 
 import java.util.HashMap;
 import java.util.Map;
 
-@Data
 public class Properties {
     // TomTom properties est un objet libre — on stocke dans une map pratique
     private Map<String, Object> props = new HashMap<>();
@@ -38,5 +37,13 @@ public class Properties {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    public Map<String, Object> getProps() {
+        return props;
+    }
+
+    public void setProps(Map<String, Object> props) {
+        this.props = props;
     }
 }

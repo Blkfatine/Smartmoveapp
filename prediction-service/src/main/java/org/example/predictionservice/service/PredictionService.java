@@ -1,8 +1,6 @@
 package org.example.predictionservice.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.example.predictionservice.model.EnrichedPrediction;
 import org.example.predictionservice.model.ImpactFactors;
 import org.example.predictionservice.model.WeatherImpactAnalysis;
@@ -18,15 +16,22 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class PredictionService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PredictionService.class);
+
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Random random = new Random();
     private final WeatherImpactService weatherImpactService;
+
+    public PredictionService(KafkaTemplate<String, Object> kafkaTemplate, RestTemplate restTemplate, WeatherImpactService weatherImpactService) {
+        this.kafkaTemplate = kafkaTemplate;
+        this.restTemplate = restTemplate;
+        this.weatherImpactService = weatherImpactService;
+    }
 
     // Service URLs (via Eureka)
     private static final String TRAFFIC_SERVICE_URL = "http://TRAFFIC-SERVICE/api/traffic/route?origin={origin}&destination={destination}";
@@ -224,69 +229,7 @@ public class PredictionService {
         return Math.max(0.5, score);
     }
     
-    // Updated builder method to accept calculated values
-    private EnrichedPrediction buildEnrichedPrediction(
-            String origin, String destination,
-            Map<String, Object> routeData,
-            Map<String, Object> weatherData,
-            List<Map<String, Object>> incidents,
-            boolean isPeakHour,
-            String departureTime,
-            String departureDate,
-            double predictedDuration,
-            double baseDuration,
-            double distanceKm,
-            double totalDelta,
-            double confidence,
-            String aiRecommendation) {
 
-        // ... Existing extraction logic ... 
-        String weatherCondition = extractWeatherCondition(weatherData); 
-        double temperature = extractTemperature(weatherData);
-        double visibility = extractVisibility(weatherData);
-        double windSpeed = extractWindSpeed(weatherData);
-        
-        // Calculate percentages for UI
-        ImpactFactors impactFactors = calculateImpactFactors(0, 0, 0, 0); // TODO: Refactor to usage
-        
-        // Generate Details
-        List<String> explanationPoints = new ArrayList<>();
-        if (totalDelta > 0) explanationPoints.add("⏱️ Retard estimé: +" + Math.round(totalDelta) + " min");
-        if (isPeakHour) explanationPoints.add("⏰ Correction Heure de Pointe appliquée");
-        
-        // Risk
-        int riskScore = (int)((totalDelta / baseDuration) * 100);
-        String riskLevel = riskScore > 30 ? "HIGH" : (riskScore > 10 ? "MEDIUM" : "LOW");
-
-        return EnrichedPrediction.builder()
-                .origin(origin)
-                .destination(destination)
-                .timestamp(LocalDateTime.now().toString())
-                .predictedDuration(Math.round(predictedDuration * 10.0) / 10.0)
-                .baseDuration(Math.round(baseDuration * 10.0) / 10.0)
-                .distanceKm(Math.round(distanceKm * 10.0) / 10.0)
-                .riskLevel(riskLevel)
-                .riskScore(riskScore)
-                .impactFactors(impactFactors) // Pass simplified or recalculated
-                .isPeakHour(isPeakHour)
-                .hasIncidents(!incidents.isEmpty())
-                .weatherCondition(weatherCondition)
-                .trafficCondition("Normal") // Simplify
-                .explanationPoints(explanationPoints)
-                .aiRecommendation(aiRecommendation)
-                .temperature(temperature)
-                .visibility(visibility)
-                .windSpeed(windSpeed)
-                .incidentCount(incidents.size())
-                .incidentSeverity(getIncidentSeverity(incidents))
-                .durationText(formatDuration(predictedDuration))
-                .arrivalTime(calculateArrivalTime(departureTime != null ? departureTime : LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")), predictedDuration))
-                .departureTime(departureTime != null ? departureTime : LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")))
-                .routeGeometry((List<Object>) routeData.get("routeGeometry"))
-                .confidenceScore(confidence)
-                .recommendationOffset(totalDelta > 10 ? totalDelta * 0.4 : 0)
-                .build();
-    }
 
     /**
      * Fetch route data from Traffic Service (TomTom integration)
@@ -855,37 +798,7 @@ public class PredictionService {
         return explanations;
     }
 
-    private String generateAIRecommendation(boolean isPeakHour, String weather, int incidents,
-            String departureTime, double additionalTime) {
-        List<String> recommendations = new ArrayList<>();
 
-        if (isPeakHour && additionalTime > 5) {
-            recommendations.add("Partir 15-20 minutes plus tard pourrait réduire votre trajet de 20%.");
-        } else if (isPeakHour) {
-            recommendations.add("Heure de pointe - trafic légèrement ralenti.");
-        }
-
-        if (weather != null && (weather.toLowerCase().contains("rain") || weather.toLowerCase().contains("pluie"))) {
-            recommendations.add("Pluie signalée - augmentez vos distances de sécurité.");
-        }
-
-        if (weather != null
-                && (weather.toLowerCase().contains("fog") || weather.toLowerCase().contains("brouillard"))) {
-            recommendations.add("Brouillard détecté - utilisez vos feux et roulez prudemment.");
-        }
-
-        if (incidents > 1) {
-            recommendations.add("Plusieurs incidents signalés - envisagez un itinéraire alternatif.");
-        } else if (incidents > 0) {
-            recommendations.add("Incident signalé - restez vigilant.");
-        }
-
-        if (recommendations.isEmpty()) {
-            recommendations.add("Conditions optimales pour votre trajet. Bonne route!");
-        }
-
-        return String.join(" ", recommendations);
-    }
 
     // ========== UTILITY METHODS ==========
 
@@ -1042,7 +955,7 @@ public class PredictionService {
     // ========== LEGACY METHODS ==========
 
     public Prediction analyzeTrip(String origin, String destination) {
-        EnrichedPrediction enriched = analyzeEnrichedTrip(origin, destination, null, null);
+        EnrichedPrediction enriched = analyzeEnrichedTrip(origin, destination, null, null, "driving");
 
         Prediction prediction = new Prediction(
                 origin,
@@ -1072,7 +985,7 @@ public class PredictionService {
         }
 
         EnrichedPrediction prediction = analyzeEnrichedTrip(origin, destination, null,
-                LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+                LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")), "driving");
 
         log.info("Generated: {} -> {} = {} ({})",
                 origin, destination, prediction.getDurationText(), prediction.getRiskLevel());

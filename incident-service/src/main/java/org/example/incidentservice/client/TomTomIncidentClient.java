@@ -1,6 +1,6 @@
 package org.example.incidentservice.client;
 
-import lombok.RequiredArgsConstructor;
+
 import org.example.incidentservice.client.dto.TomTomResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -8,7 +8,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
-@RequiredArgsConstructor
 public class TomTomIncidentClient {
 
     private final RestTemplate restTemplate;
@@ -18,6 +17,10 @@ public class TomTomIncidentClient {
 
     @Value("${tomtom.base-url}")
     private String baseUrl;
+
+    public TomTomIncidentClient(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     public TomTomResponse getIncidents() {
 

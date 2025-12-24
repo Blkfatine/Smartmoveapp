@@ -330,9 +330,9 @@ export class HomeComponent implements OnInit {
   weatherDesc: string | null = null;
 
   constructor(
-      public authService: AuthService,
-      private meteoService: MeteoService,
-      private predictionLogic: PredictionLogicService
+    public authService: AuthService,
+    private meteoService: MeteoService,
+    private predictionLogic: PredictionLogicService
   ) { }
 
   ngOnInit(): void {
@@ -342,14 +342,14 @@ export class HomeComponent implements OnInit {
     // 2. Fetch Weather for Casablanca (default)
     // 33.5731° N, 7.5898° W
     this.meteoService.getLiveWeather(33.5731, -7.5898).subscribe({
-        next: (data) => {
-            this.weatherTemp = data.current.temperature;
-            this.weatherDesc = data.current.condition;
-        },
-        error: (err) => {
-            console.error(err);
-            this.weatherDesc = "Non disponible";
-        }
+      next: (data) => {
+        this.weatherTemp = data.current.temperature;
+        this.weatherDesc = data.current.condition;
+      },
+      error: (err: any) => {
+        console.error(err);
+        this.weatherDesc = "Non disponible";
+      }
     });
   }
 }

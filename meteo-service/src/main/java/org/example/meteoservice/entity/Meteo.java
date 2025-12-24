@@ -20,8 +20,8 @@ public class Meteo {
     @Column(nullable = false)
     private Double vent;
     
-    @Column(nullable = false)
-    private String condition;
+    @Column(name = "weather_condition", nullable = false)
+    private String weatherCondition;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -31,11 +31,11 @@ public class Meteo {
     
     public Meteo() {}
     
-    public Meteo(Double temperature, Double precipitation, Double vent, String condition) {
+    public Meteo(Double temperature, Double precipitation, Double vent, String weatherCondition) {
         this.temperature = temperature;
         this.precipitation = precipitation;
         this.vent = vent;
-        this.condition = condition;
+        this.weatherCondition = weatherCondition;
         this.createdAt = LocalDateTime.now();
     }
     
@@ -81,12 +81,12 @@ public class Meteo {
         this.vent = vent;
     }
     
-    public String getCondition() {
-        return condition;
+    public String getWeatherCondition() {
+        return weatherCondition;
     }
     
-    public void setCondition(String condition) {
-        this.condition = condition;
+    public void setWeatherCondition(String weatherCondition) {
+        this.weatherCondition = weatherCondition;
     }
     
     public LocalDateTime getCreatedAt() {

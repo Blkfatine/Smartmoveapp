@@ -40,7 +40,7 @@ public class MeteoService {
         meteo.setTemperature(meteoRequest.getTemperature());
         meteo.setPrecipitation(meteoRequest.getPrecipitation());
         meteo.setVent(meteoRequest.getVent());
-        meteo.setCondition(meteoRequest.getCondition());
+        meteo.setWeatherCondition(meteoRequest.getCondition());
         
         Meteo savedMeteo = meteoRepository.save(meteo);
         
@@ -61,7 +61,7 @@ public class MeteoService {
     }
     
     public List<MeteoResponse> getMeteoByCondition(String condition) {
-        List<Meteo> meteoList = meteoRepository.findByConditionOrderByCreatedAtDesc(condition);
+        List<Meteo> meteoList = meteoRepository.findByWeatherConditionOrderByCreatedAtDesc(condition);
         return meteoList.stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
@@ -82,7 +82,7 @@ public class MeteoService {
         response.setTemperature(meteo.getTemperature());
         response.setPrecipitation(meteo.getPrecipitation());
         response.setVent(meteo.getVent());
-        response.setCondition(meteo.getCondition());
+        response.setCondition(meteo.getWeatherCondition());
         response.setCreatedAt(meteo.getCreatedAt());
         response.setUpdatedAt(meteo.getUpdatedAt());
         return response;
@@ -199,7 +199,7 @@ public class MeteoService {
         meteo.setTemperature(current.getTemperature());
         meteo.setPrecipitation(0.0); // Current weather doesn't include precipitation
         meteo.setVent(current.getWindSpeed());
-        meteo.setCondition(current.getCondition());
+        meteo.setWeatherCondition(current.getCondition());
         
         meteoRepository.save(meteo);
     }

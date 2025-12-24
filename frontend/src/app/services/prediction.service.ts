@@ -41,8 +41,8 @@ export interface Prediction {
     providedIn: 'root'
 })
 export class PredictionService {
-    private apiUrl = 'http://localhost:8085/api/notifications/stream';
-    private predictionApiUrl = 'http://localhost:8086/api/predictions';
+    private apiUrl = 'http://localhost:8888/api/notifications/stream';
+    private predictionApiUrl = 'http://localhost:8888/api/predictions';
 
     constructor(private http: HttpClient, private ngZone: NgZone) { }
 
@@ -50,7 +50,7 @@ export class PredictionService {
         return new Observable<Prediction[]>(observer => {
             const eventSource = new EventSource(this.apiUrl);
 
-            eventSource.onmessage = (event) => {
+            eventSource.onmessage = (event: any) => {
                 this.ngZone.run(() => {
                     try {
                         const data = JSON.parse(event.data);
@@ -62,7 +62,7 @@ export class PredictionService {
                 });
             };
 
-            eventSource.onerror = (error) => {
+            eventSource.onerror = (error: any) => {
                 this.ngZone.run(() => {
                     console.error('EventSource error:', error);
                 });
@@ -89,7 +89,7 @@ export class PredictionService {
                 console.log('Enriched prediction received:', response);
                 return response;
             }),
-            catchError(error => {
+            catchError((error: any) => {
                 console.error('Prediction API error:', error);
                 return of(this.createFallbackPrediction(origin, destination, time));
             })

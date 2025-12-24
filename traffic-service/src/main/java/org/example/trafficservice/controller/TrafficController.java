@@ -1,6 +1,6 @@
 package org.example.trafficservice.controller;
 
-import lombok.RequiredArgsConstructor;
+
 import org.example.trafficservice.model.Traffic;
 import org.example.trafficservice.service.TrafficService;
 import org.springframework.web.bind.annotation.*;
@@ -9,10 +9,13 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/traffic")
-@RequiredArgsConstructor
 public class TrafficController {
 
     private final TrafficService trafficService;
+
+    public TrafficController(TrafficService trafficService) {
+        this.trafficService = trafficService;
+    }
 
     @GetMapping
     public List<Traffic> getAllTraffic() {

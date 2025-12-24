@@ -25,7 +25,7 @@ export class MapComponent implements OnInit, AfterViewInit {
   // Default center: Morocco (approximate center)
   // Morocco Bounds: Latitude: 27.666667, Longitude: -9.7
   // Casablanca: 33.5731, -7.5898
-  defaultCenter = { lat: 33.5731, lng: -7.5898 }; 
+  defaultCenter = { lat: 33.5731, lng: -7.5898 };
 
   constructor(private meteoService: MeteoService) { }
 
@@ -38,7 +38,7 @@ export class MapComponent implements OnInit, AfterViewInit {
           condition: data.current.condition
         };
       },
-      error: (err) => console.error('Error fetching weather:', err)
+      error: (err: any) => console.error('Error fetching weather:', err)
     });
   }
 
@@ -64,7 +64,7 @@ export class MapComponent implements OnInit, AfterViewInit {
     };
 
     this.map = new google.maps.Map(document.getElementById('map') as HTMLElement, mapOptions);
-    
+
     this.directionsService = new google.maps.DirectionsService();
     this.directionsRenderer = new google.maps.DirectionsRenderer({
       map: this.map,
@@ -83,10 +83,10 @@ export class MapComponent implements OnInit, AfterViewInit {
 
 
 
-  public calculateRoute(originCoords: {lat: number, lng: number}, destination: string, transportMode: string = 'driving'): Observable<google.maps.DirectionsResult | null> {
+  public calculateRoute(originCoords: { lat: number, lng: number }, destination: string, transportMode: string = 'driving'): Observable<google.maps.DirectionsResult | null> {
     const mode = this.getTravelMode(transportMode);
     const resultSubject = new Subject<google.maps.DirectionsResult | null>();
-    
+
     // Fetch weather for the origin
     this.updateWeather(originCoords.lat, originCoords.lng, "Départ");
 
@@ -97,18 +97,18 @@ export class MapComponent implements OnInit, AfterViewInit {
         travelMode: mode,
         provideRouteAlternatives: true,
         drivingOptions: mode === google.maps.TravelMode.DRIVING ? {
-             departureTime: new Date(), // Important for duration_in_traffic
-             trafficModel: google.maps.TrafficModel.BEST_GUESS
+          departureTime: new Date(), // Important for duration_in_traffic
+          trafficModel: google.maps.TrafficModel.BEST_GUESS
         } : undefined
       },
       (response, status) => {
-          this.handleRouteResponse(response, status);
-          if (status === "OK") {
-              resultSubject.next(response);
-          } else {
-              resultSubject.next(null);
-          }
-          resultSubject.complete();
+        this.handleRouteResponse(response, status);
+        if (status === "OK") {
+          resultSubject.next(response);
+        } else {
+          resultSubject.next(null);
+        }
+        resultSubject.complete();
       }
     );
 
@@ -136,21 +136,21 @@ export class MapComponent implements OnInit, AfterViewInit {
         travelMode: mode,
         provideRouteAlternatives: true,
         drivingOptions: mode === google.maps.TravelMode.DRIVING ? {
-             departureTime: new Date(),
-             trafficModel: google.maps.TrafficModel.BEST_GUESS
+          departureTime: new Date(),
+          trafficModel: google.maps.TrafficModel.BEST_GUESS
         } : undefined
       },
       (response, status) => {
-          this.handleRouteResponse(response, status);
-           if (status === "OK") {
-              resultSubject.next(response);
-          } else {
-              resultSubject.next(null);
-          }
-           resultSubject.complete();
+        this.handleRouteResponse(response, status);
+        if (status === "OK") {
+          resultSubject.next(response);
+        } else {
+          resultSubject.next(null);
+        }
+        resultSubject.complete();
       }
     );
-    
+
     return resultSubject.asObservable();
   }
 
@@ -187,19 +187,19 @@ export class MapComponent implements OnInit, AfterViewInit {
             map: this.map,
             title: "Votre position",
             icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 7,
-                fillColor: "#4285F4",
-                fillOpacity: 1,
-                strokeColor: "white",
-                strokeWeight: 2,
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 7,
+              fillColor: "#4285F4",
+              fillOpacity: 1,
+              strokeColor: "white",
+              strokeWeight: 2,
             },
           });
 
           this.map.setCenter(pos);
-          
 
-          
+
+
         },
         () => {
           console.log("Error: The Geolocation service failed.");
@@ -223,12 +223,12 @@ export class MapComponent implements OnInit, AfterViewInit {
     this.meteoService.getLiveWeather(lat, lng).subscribe({
       next: (data) => {
         this.weatherData = {
-          city: cityName || 'Localisation actuelle', 
+          city: cityName || 'Localisation actuelle',
           temp: data.current.temperature,
           condition: data.current.condition
         };
       },
-      error: (err) => console.error('Error fetching weather:', err)
+      error: (err: any) => console.error('Error fetching weather:', err)
     });
   }
 }

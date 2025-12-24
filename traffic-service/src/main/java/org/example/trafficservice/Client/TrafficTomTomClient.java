@@ -1,16 +1,20 @@
 package org.example.trafficservice.Client;
 
-import lombok.RequiredArgsConstructor;
+
 import org.example.trafficservice.model.TrafficConfig;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 @Component
-@RequiredArgsConstructor
 public class TrafficTomTomClient {
 
     private final TrafficConfig config;
     private final RestTemplate restTemplate;
+
+    public TrafficTomTomClient(TrafficConfig config, RestTemplate restTemplate) {
+        this.config = config;
+        this.restTemplate = restTemplate;
+    }
 
     public String getTomTomTraffic(double lat, double lon) {
         String url = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json"

@@ -17,11 +17,11 @@ public interface MeteoRepository extends JpaRepository<Meteo, Long> {
     
     List<Meteo> findByCreatedAtBetweenOrderByCreatedAtDesc(LocalDateTime start, LocalDateTime end);
     
-    List<Meteo> findByConditionOrderByCreatedAtDesc(String condition);
+    List<Meteo> findByWeatherConditionOrderByCreatedAtDesc(String condition);
     
     @Query("SELECT m FROM Meteo m WHERE m.createdAt >= :since ORDER BY m.createdAt DESC")
     List<Meteo> findRecentMeteo(@Param("since") LocalDateTime since);
     
-    @Query("SELECT COUNT(m) FROM Meteo m WHERE m.condition = :condition AND m.createdAt >= :since")
+    @Query("SELECT COUNT(m) FROM Meteo m WHERE m.weatherCondition = :condition AND m.createdAt >= :since")
     Long countByConditionSince(@Param("condition") String condition, @Param("since") LocalDateTime since);
 }

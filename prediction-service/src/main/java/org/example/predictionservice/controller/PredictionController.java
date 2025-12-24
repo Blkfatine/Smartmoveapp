@@ -1,6 +1,6 @@
 package org.example.predictionservice.controller;
 
-import lombok.RequiredArgsConstructor;
+
 import org.example.predictionservice.model.EnrichedPrediction;
 import org.example.predictionservice.model.Prediction;
 import org.example.predictionservice.model.PredictionRequest;
@@ -12,12 +12,15 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/predictions")
-@RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class PredictionController {
 
     private final PredictionService predictionService;
-    private final TripMonitoringService monitoringService;
+    private final TripMonitoringService tripMonitoringService;
+
+    public PredictionController(PredictionService predictionService, TripMonitoringService tripMonitoringService) {
+        this.predictionService = predictionService;
+        this.tripMonitoringService = tripMonitoringService;
+    }
 
     @PostMapping("/predict")
     public EnrichedPrediction predictEnriched(@RequestBody PredictionRequest request) {
@@ -28,7 +31,7 @@ public class PredictionController {
     public MonitoredTrip monitorTrip(@RequestBody PredictionRequest request) {
         // Using "userId" from request or generating a placeholder
         String userId = "user-" + System.currentTimeMillis();
-        return monitoringService.startMonitoring(request.getOrigin(), request.getDestination(), userId);
+        return tripMonitoringService.startMonitoring(request.getOrigin(), request.getDestination(), userId);
     }
 
     @GetMapping("/status")
@@ -56,7 +59,8 @@ public class PredictionController {
                 request.getOrigin(),
                 request.getDestination(),
                 request.getDepartureDate(),
-                request.getDepartureTime());
+                request.getDepartureTime(),
+                (request.getTransportMode() != null ? request.getTransportMode() : "driving"));
         return ResponseEntity.ok(prediction);
     }
 

@@ -1,13 +1,13 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="login-container">
       <!-- Ambient Glows -->
@@ -55,6 +55,10 @@ import { AuthService } from '../../services/auth.service';
             <span class="live-text">🟢 En direct • Données trafic & météo actualisées</span>
           </div>
         </form>
+
+          <div class="footer-links" style="text-align: center; margin-top: 24px; font-size: 14px; color: #94a3b8;">
+             Pas encore de compte ? <a routerLink="/register" style="color: #3b82f6; text-decoration: none; font-weight: 600;">S'inscrire</a>
+          </div>
       </div>
     </div>
   `,
@@ -286,7 +290,7 @@ export class LoginComponent {
       next: () => {
         this.router.navigate(['/dashboard']);
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Login error:', err);
         if (err.status === 401) {
           this.errorMessage = 'Identifiants incorrects';
