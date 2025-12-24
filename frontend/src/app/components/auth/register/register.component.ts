@@ -104,7 +104,19 @@ export class RegisterComponent {
       },
       error: (err: any) => {
         console.error(err);
-        this.errorMessage = err.error || 'Erreur lors de l\'inscription';
+        // Handle both string errors (from backend) and object errors (parsing/network issues)
+        if (typeof err.error === 'string') {
+          this.errorMessage = err.error;
+        } else {
+          // If parsing failed (e.g. 200 OK treated as error), check if message is actually success
+          if (err.status === 200) {
+             // This fallback should rarely be hit if responseType is 'text', but good for safety
+             alert('Inscription réussie ! Connectez-vous.');
+             this.router.navigate(['/login']);
+             return;
+          }
+          this.errorMessage = 'Erreur lors de l\'inscription';
+        }
         this.isLoading = false;
       }
     });

@@ -25,6 +25,18 @@ public class NotificationConsumer {
         saveAndBroadcast("TRAFFIC", "Alerte Trafic", message);
     }
 
+    @KafkaListener(topics = "weather-updates", groupId = "notification-group")
+    public void consumeWeather(String message) {
+        System.out.println("Received weather update: " + message);
+        saveAndBroadcast("WEATHER", "Alerte Météo", message);
+    }
+
+    @KafkaListener(topics = "incident-updates", groupId = "notification-group")
+    public void consumeIncident(String message) {
+        System.out.println("Received incident update: " + message);
+        saveAndBroadcast("INCIDENT", "Alerte Incident", message);
+    }
+
     private void saveAndBroadcast(String type, String title, String message) {
         org.example.notificationservice.model.Notification notification;
         
