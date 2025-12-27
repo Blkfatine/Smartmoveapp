@@ -79,8 +79,8 @@ public class HistoryController {
     private String extractUserId(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
              // Fallback for dev/testing without JWT
-             // return "dev-user"; 
-             return null;
+             return "dev-user"; 
+             // return null;
         }
         try {
             String token = authHeader.substring(7);

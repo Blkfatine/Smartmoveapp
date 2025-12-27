@@ -1,80 +1,108 @@
 package org.example.notificationservice.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.notificationservice.controller.NotificationController;
+import org.example.notificationservice.model.Notification;
+import org.example.notificationservice.repository.NotificationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.Map;
 
 @Service
 public class NotificationConsumer {
 
     @Autowired
-    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private ObjectMapper objectMapper;
 
     @Autowired
-    private org.example.notificationservice.repository.NotificationRepository notificationRepository;
+    private NotificationRepository notificationRepository;
 
     @Autowired
-    private org.example.notificationservice.controller.NotificationController notificationController;
+    private NotificationController notificationController;
 
     @KafkaListener(topics = "route.prediction.updated", groupId = "notification-group")
     public void consumeRouteUpdate(String message) {
         try {
-            java.util.Map<String, Object> payload = objectMapper.readValue(message, new com.fasterxml.jackson.core.type.TypeReference<>(){});
+            Map<String, Object> payload = objectMapper.readValue(message, new TypeReference<>() {});
+            
             String userId = (String) payload.get("userId");
-            String advice = (String) payload.get("advice");
+            String origin = (String) payload.get("originLabel");
+            String destination = (String) payload.get("destinationLabel");
             String routeId = (String) payload.get("historyRouteId");
             
-            String title = "Trajet mis à jour";
-            String msg = "Nouvelle recommandation " + advice + ". Vérifiez votre itinéraire.";
-            
-            saveAndBroadcast("ROUTE_UPDATE", title, msg, userId, routeId);
+            // "diff" contains what changed: delaySec, riskScore, advice
+            Map<String, Object> diff = (Map<String, Object>) payload.get("diff");
+
+            if (diff == null || diff.isEmpty()) {
+                return; // No significant changes, ignore.
+            }
+
+            StringBuilder msgBuilder = new StringBuilder();
+            String title = "Changement sur votre trajet";
+
+            if (diff.containsKey("delaySec")) {
+                Map<String, Object> delayData = (Map<String, Object>) diff.get("delaySec");
+                long oldDelay = ((Number) delayData.get("from")).longValue();
+                long newDelay = ((Number) delayData.get("to")).longValue();
+                long addedDelay = (newDelay - oldDelay) / 60;
+                
+                if (addedDelay > 0) {
+                    msgBuilder.append(String.format("Retard supplémentaire de %d min. ", addedDelay));
+                    title = "Retard détecté";
+                } else if (addedDelay < 0) {
+                     msgBuilder.append(String.format("Bonne nouvelle ! Gain de %d min. ", Math.abs(addedDelay)));
+                     title = "Trajet plus rapide";
+                }
+            }
+
+            if (diff.containsKey("riskScore")) {
+                Map<String, Object> riskData = (Map<String, Object>) diff.get("riskScore");
+                double newRisk = ((Number) riskData.get("to")).doubleValue();
+                if (newRisk > 50) {
+                    msgBuilder.append("Risque élevé détecté (Météo/Trafic). ");
+                }
+            }
+
+            if (diff.containsKey("advice")) {
+                Map<String, Object> adviceData = (Map<String, Object>) diff.get("advice");
+                String newAdvice = (String) adviceData.get("to");
+                msgBuilder.append("Conseil: ").append(newAdvice);
+            }
+
+            String finalMessage = msgBuilder.toString();
+            if (finalMessage.isEmpty()) {
+                finalMessage = "Les conditions de votre trajet ont changé.";
+            }
+
+            saveAndBroadcast("ROUTE_UPDATE", title, finalMessage, userId, routeId);
+
         } catch (Exception e) {
             System.err.println("Error parsing route update: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    @KafkaListener(topics = "trip-predictions", groupId = "notification-group")
-    public void consumePrediction(String message) {
-        saveAndBroadcast("PREDICTION", "Prédiction de trajet", message, "system", null);
-    }
-
-    @KafkaListener(topics = "traffic-updates", groupId = "notification-group")
-    public void consumeTraffic(String message) {
-        saveAndBroadcast("TRAFFIC", "Alerte Trafic", message, "system", null);
-    }
-
-    @KafkaListener(topics = "weather-updates", groupId = "notification-group")
-    public void consumeWeather(String message) {
-        saveAndBroadcast("WEATHER", "Alerte Météo", message, "system", null);
-    }
-
-    @KafkaListener(topics = "incident-updates", groupId = "notification-group")
-    public void consumeIncident(String message) {
-        saveAndBroadcast("INCIDENT", "Alerte Incident", message, "system", null);
-    }
+    // Removed global listeners (weather, traffic, etc.) to prevent spam as requested.
 
     private void saveAndBroadcast(String type, String title, String message, String userId, String routeId) {
-        org.example.notificationservice.model.Notification notification;
+        Notification notification;
         
         if (userId == null) userId = "system";
 
-        java.util.Optional<org.example.notificationservice.model.Notification> existing = 
-            notificationRepository.findByUserIdAndTypeAndMessage(userId, type, message);
-
-        if (existing.isPresent()) {
-            notification = existing.get();
-            notification.setTimestamp(java.time.LocalDateTime.now());
-            notification.setRead(false);
-        } else {
-            notification = new org.example.notificationservice.model.Notification();
-            notification.setUserId(userId);
-            notification.setTitle(title);
-            notification.setMessage(message);
-            notification.setType(type);
-            notification.setTimestamp(java.time.LocalDateTime.now());
-            notification.setRead(false);
-            notification.setRelatedRouteId(routeId);
-        }
+        // De-duplicate: If a similar notification exists for this route recently, maybe update it?
+        // For now, we append new ones but we could check timestamp.
+        notification = new Notification();
+        notification.setUserId(userId);
+        notification.setTitle(title);
+        notification.setMessage(message);
+        notification.setType(type);
+        notification.setTimestamp(LocalDateTime.now());
+        notification.setRead(false);
+        notification.setRelatedRouteId(routeId);
 
         notificationRepository.save(notification);
 
