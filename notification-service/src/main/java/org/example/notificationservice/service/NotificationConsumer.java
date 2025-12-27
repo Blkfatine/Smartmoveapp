@@ -8,40 +8,55 @@ import org.springframework.stereotype.Service;
 public class NotificationConsumer {
 
     @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    @Autowired
     private org.example.notificationservice.repository.NotificationRepository notificationRepository;
 
     @Autowired
     private org.example.notificationservice.controller.NotificationController notificationController;
 
+    @KafkaListener(topics = "route.prediction.updated", groupId = "notification-group")
+    public void consumeRouteUpdate(String message) {
+        try {
+            java.util.Map<String, Object> payload = objectMapper.readValue(message, new com.fasterxml.jackson.core.type.TypeReference<>(){});
+            String userId = (String) payload.get("userId");
+            String advice = (String) payload.get("advice");
+            String routeId = (String) payload.get("historyRouteId");
+            
+            String title = "Trajet mis à jour";
+            String msg = "Nouvelle recommandation " + advice + ". Vérifiez votre itinéraire.";
+            
+            saveAndBroadcast("ROUTE_UPDATE", title, msg, userId, routeId);
+        } catch (Exception e) {
+            System.err.println("Error parsing route update: " + e.getMessage());
+        }
+    }
+
     @KafkaListener(topics = "trip-predictions", groupId = "notification-group")
     public void consumePrediction(String message) {
-        System.out.println("Received prediction: " + message);
-        saveAndBroadcast("PREDICTION", "Prédiction de trajet", message);
+        saveAndBroadcast("PREDICTION", "Prédiction de trajet", message, "system", null);
     }
 
     @KafkaListener(topics = "traffic-updates", groupId = "notification-group")
     public void consumeTraffic(String message) {
-        System.out.println("Received traffic update: " + message);
-        saveAndBroadcast("TRAFFIC", "Alerte Trafic", message);
+        saveAndBroadcast("TRAFFIC", "Alerte Trafic", message, "system", null);
     }
 
     @KafkaListener(topics = "weather-updates", groupId = "notification-group")
     public void consumeWeather(String message) {
-        System.out.println("Received weather update: " + message);
-        saveAndBroadcast("WEATHER", "Alerte Météo", message);
+        saveAndBroadcast("WEATHER", "Alerte Météo", message, "system", null);
     }
 
     @KafkaListener(topics = "incident-updates", groupId = "notification-group")
     public void consumeIncident(String message) {
-        System.out.println("Received incident update: " + message);
-        saveAndBroadcast("INCIDENT", "Alerte Incident", message);
+        saveAndBroadcast("INCIDENT", "Alerte Incident", message, "system", null);
     }
 
-    private void saveAndBroadcast(String type, String title, String message) {
+    private void saveAndBroadcast(String type, String title, String message, String userId, String routeId) {
         org.example.notificationservice.model.Notification notification;
         
-        // Use a generic userId if not provided in the Kafka message string (for demo)
-        String userId = "system"; 
+        if (userId == null) userId = "system";
 
         java.util.Optional<org.example.notificationservice.model.Notification> existing = 
             notificationRepository.findByUserIdAndTypeAndMessage(userId, type, message);
@@ -58,6 +73,7 @@ public class NotificationConsumer {
             notification.setType(type);
             notification.setTimestamp(java.time.LocalDateTime.now());
             notification.setRead(false);
+            notification.setRelatedRouteId(routeId);
         }
 
         notificationRepository.save(notification);

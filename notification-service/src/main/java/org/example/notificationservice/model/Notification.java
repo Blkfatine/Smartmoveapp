@@ -16,10 +16,11 @@ public class Notification {
     private LocalDateTime timestamp;
     private String type;
     private boolean isRead;
+    private String relatedRouteId;
 
     public Notification() {}
 
-    public Notification(Long id, String title, String message, String userId, LocalDateTime timestamp, String type, boolean isRead) {
+    public Notification(Long id, String title, String message, String userId, LocalDateTime timestamp, String type, boolean isRead, String relatedRouteId) {
         this.id = id;
         this.title = title;
         this.message = message;
@@ -27,6 +28,7 @@ public class Notification {
         this.timestamp = timestamp;
         this.type = type;
         this.isRead = isRead;
+        this.relatedRouteId = relatedRouteId;
     }
 
     public Long getId() { return id; }
@@ -43,4 +45,6 @@ public class Notification {
     public void setType(String type) { this.type = type; }
     public boolean isRead() { return isRead; }
     public void setRead(boolean isRead) { this.isRead = isRead; }
+    public String getRelatedRouteId() { return relatedRouteId; }
+    public void setRelatedRouteId(String relatedRouteId) { this.relatedRouteId = relatedRouteId; }
 }

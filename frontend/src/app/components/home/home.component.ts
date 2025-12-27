@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -58,7 +58,7 @@ import { PredictionLogicService } from '../../services/prediction-logic.service'
               <div class="status-value" [ngClass]="isPeak ? 'text-orange' : 'text-green'">
                  {{ isPeak ? 'Dense' : 'Fluide' }}
               </div>
-              <div class="status-desc">Casablanca : {{ isPeak ? 'Heure de pointe' : 'Conditions optimales' }}</div>
+              <div class="status-desc"><span class="city-label">{{ currentCity }}</span> : {{ isPeak ? 'Heure de pointe' : 'Conditions optimales' }}</div>
             </div>
             <div class="card-footer">
               <div class="progress-bar">
@@ -78,7 +78,7 @@ import { PredictionLogicService } from '../../services/prediction-logic.service'
               <div class="status-desc">{{ weatherDesc || 'Chargement...' }}</div>
             </div>
             <div class="card-footer">
-              <div class="weather-trend" *ngIf="weatherTemp">📍 Casablanca</div>
+              <div class="weather-trend" *ngIf="weatherTemp">📍 {{ currentCity }}</div>
             </div>
           </div>
 
@@ -105,7 +105,11 @@ import { PredictionLogicService } from '../../services/prediction-logic.service'
       display: block;
       height: 100%;
       overflow-y: auto;
-      background: #0f172a;
+      background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.5)), 
+                  url('https://images.unsplash.com/photo-1592210454359-9043f067919b?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
     }
 
     .home-wrapper {
@@ -299,6 +303,9 @@ import { PredictionLogicService } from '../../services/prediction-logic.service'
     .text-orange { color: #f97316; }
     .text-blue { color: #3b82f6; }
 
+    .city-label { color: #64748b; font-weight: 600; }
+    .weather-trend { color: #64748b; font-weight: 600; font-size: 13px; }
+
     .card-footer { margin-top: 24px; }
     .progress-bar { height: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; overflow: hidden; }
     .progress-fill { height: 100%; border-radius: 10px; }
@@ -328,28 +335,70 @@ export class HomeComponent implements OnInit {
   isPeak: boolean = false;
   weatherTemp: number | null = null;
   weatherDesc: string | null = null;
+  currentCity: string = 'Chargement...';
 
   constructor(
     public authService: AuthService,
     private meteoService: MeteoService,
-    private predictionLogic: PredictionLogicService
+    private predictionLogic: PredictionLogicService,
+    private ngZone: NgZone
   ) { }
 
   ngOnInit(): void {
     // 1. Calculate Peak Hour
     this.isPeak = this.predictionLogic.isPeakHour(new Date());
 
-    // 2. Fetch Weather for Casablanca (default)
-    // 33.5731° N, 7.5898° W
-    this.meteoService.getLiveWeather(33.5731, -7.5898).subscribe({
-      next: (data) => {
-        this.weatherTemp = data.current.temperature;
-        this.weatherDesc = data.current.condition;
-      },
-      error: (err: any) => {
-        console.error(err);
-        this.weatherDesc = "Non disponible";
-      }
-    });
+    // 2. Fetch User Location & Weather
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                
+                this.updateWeather(lat, lng);
+                this.reverseGeocode(lat, lng);
+            },
+            (error) => {
+                console.error("Geolocation denied", error);
+                this.currentCity = 'Casablanca (Défaut)';
+                this.updateWeather(33.5731, -7.5898);
+            }
+        );
+    } else {
+        this.currentCity = 'Casablanca (Défaut)';
+        this.updateWeather(33.5731, -7.5898);
+    }
+  }
+
+  updateWeather(lat: number, lng: number) {
+      this.meteoService.getLiveWeather(lat, lng).subscribe({
+        next: (data) => {
+          this.weatherTemp = data.current.temperature;
+          this.weatherDesc = data.current.condition;
+        },
+        error: (err: any) => {
+          console.error(err);
+          this.weatherDesc = "Non disponible";
+        }
+      });
+  }
+
+  reverseGeocode(lat: number, lng: number) {
+      const geocoder = new google.maps.Geocoder();
+      const latlng = { lat: lat, lng: lng };
+      
+      geocoder.geocode({ location: latlng }, (results, status) => {
+          this.ngZone.run(() => {
+              if (status === 'OK' && results && results[0]) {
+                  // Find the city/locality component
+                  const cityComponent = results[0].address_components.find(c => 
+                      c.types.includes('locality') || c.types.includes('administrative_area_level_1')
+                  );
+                  this.currentCity = cityComponent ? cityComponent.long_name : 'Ma Position';
+              } else {
+                  this.currentCity = 'Ma Position';
+              }
+          });
+      });
   }
 }

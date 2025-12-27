@@ -21,10 +21,14 @@ public class NotificationController {
     @Autowired
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    private final java.util.Map<String, java.util.List<SseEmitter>> userEmitters = new java.util.concurrent.ConcurrentHashMap<>();
 
     @GetMapping
-    public java.util.List<org.example.notificationservice.model.Notification> getHistory() {
+    public java.util.List<org.example.notificationservice.model.Notification> getHistory(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String userId) {
+        if (userId != null) {
+            return notificationRepository.findByUserIdOrderByTimestampDesc(userId);
+        }
         return notificationRepository.findAll();
     }
 
@@ -36,30 +40,47 @@ public class NotificationController {
             json = "{\"title\":\"Error\", \"message\":\"Serialization failed\"}";
         }
 
-        for (SseEmitter emitter : emitters) {
-            try {
-                emitter.send(SseEmitter.event().data(json));
-            } catch (IOException e) {
-                emitters.remove(emitter);
+        String userId = notification.getUserId();
+        if (userId != null && userEmitters.containsKey(userId)) {
+            java.util.List<SseEmitter> emitters = userEmitters.get(userId);
+            for (SseEmitter emitter : emitters) {
+                try {
+                    emitter.send(SseEmitter.event().data(json));
+                } catch (IOException e) {
+                    emitters.remove(emitter);
+                }
+            }
+            if (emitters.isEmpty()) {
+                userEmitters.remove(userId);
             }
         }
     }
 
     @GetMapping("/stream")
-    public SseEmitter streamNotifications() {
+    public SseEmitter streamNotifications(@org.springframework.web.bind.annotation.RequestParam String userId) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        emitters.add(emitter);
+        
+        userEmitters.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> emitters.remove(emitter));
+        emitter.onCompletion(() -> removeEmitter(userId, emitter));
+        emitter.onTimeout(() -> removeEmitter(userId, emitter));
 
-        // Send a test event to confirm connection
         try {
-            emitter.send(SseEmitter.event().name("connect").data("Connected to SmartMove Real-Time"));
+            emitter.send(SseEmitter.event().name("connect").data("Connected to SmartMove Real-Time for user " + userId));
         } catch (IOException e) {
-            emitters.remove(emitter);
+            removeEmitter(userId, emitter);
         }
 
         return emitter;
+    }
+
+    private void removeEmitter(String userId, SseEmitter emitter) {
+        java.util.List<SseEmitter> emitters = userEmitters.get(userId);
+        if (emitters != null) {
+            emitters.remove(emitter);
+            if (emitters.isEmpty()) {
+                userEmitters.remove(userId);
+            }
+        }
     }
 }

@@ -1,7 +1,11 @@
 /// <reference types="google.maps" />
-import { Component, EventEmitter, Output, Input, ViewChild, ElementRef, AfterViewInit, NgZone } from '@angular/core';
+import { Component, EventEmitter, Output, Input, ViewChild, ElementRef, AfterViewInit, NgZone, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HistoryService } from '../../services/history.service';
+import { NotificationService } from '../../services/notification.service';
+import { AuthService } from '../../services/auth.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-trip-planner',
@@ -11,6 +15,28 @@ import { FormsModule } from '@angular/forms';
     <div class="planner">
       <div class="planner-header">
         <h3>📍 Planifier un Trajet</h3>
+        
+        <!-- Bell Icon with Count -->
+        <div class="notification-bell" (click)="toggleNotifications()" *ngIf="userId">
+          🔔
+          <span class="badge" *ngIf="unreadCount > 0">{{unreadCount}}</span>
+        </div>
+      </div>
+
+      <!-- Notification Panel -->
+      <div class="notification-panel" *ngIf="showNotifications">
+        <div class="panel-header">
+          <h4>Notifications</h4>
+          <button (click)="showNotifications = false">✕</button>
+        </div>
+        <div class="panel-body">
+          <div *ngIf="notifications.length === 0" class="no-notif">Aucune notification</div>
+          <div *ngFor="let n of notifications" class="notif-item" [class.unread]="!n.read">
+            <div class="notif-title">{{n.title}}</div>
+            <div class="notif-msg">{{n.message}}</div>
+            <div class="notif-time">{{n.timestamp | date:'shortTime'}}</div>
+          </div>
+        </div>
       </div>
 
       <form (ngSubmit)="onSubmit()" class="planner-form">
@@ -91,21 +117,32 @@ import { FormsModule } from '@angular/forms';
           <button type="button" class="monitor-btn" 
                   [disabled]="!origin || !destination" 
                   (click)="onMonitor()"
-                  title="Recevoir des alertes si la durée change">
-            🔔 M'alerter
+                  title="Sauvegarder et recevoir des alertes">
+            💾 Sauvegarder
           </button>
         </div>
 
       </form>
 
-      <!-- Popular Routes -->
+      <!-- History Section -->
       <div class="popular">
-        <span class="label">Routes populaires:</span>
-        <div class="chips">
-          <button *ngFor="let r of popularRoutes" (click)="setRoute(r.origin, r.destination)" class="chip">
-            {{r.origin}} → {{r.destination}}
-          </button>
+        <span class="label">Historique:</span>
+        <div class="history-list" *ngIf="userId; else loginTemp">
+            <div *ngIf="historyRoutes.length === 0" class="empty-history">Aucun historique récent</div>
+            <div *ngFor="let r of historyRoutes" class="history-item">
+                <div class="history-info" (click)="setRoute(r.originLabel || r.originPlaceId, r.destinationLabel || r.destinationPlaceId)">
+                    <span class="history-route">{{r.originLabel}} → {{r.destinationLabel}}</span>
+                    <span class="history-mode">{{getModeIcon(r.mode)}}</span>
+                </div>
+                <button class="track-btn" [class.active]="r.tracked" (click)="toggleTrack(r)" title="Activer/Désactiver notification">
+                    {{r.tracked ? '🔔' : '🔕'}}
+                </button>
+                <button class="del-btn" (click)="deleteHistory(r.id)">✕</button>
+            </div>
         </div>
+        <ng-template #loginTemp>
+            <div class="empty-history">Connectez-vous pour voir votre historique.</div>
+        </ng-template>
       </div>
 
       <div class="info-note">
@@ -115,8 +152,24 @@ import { FormsModule } from '@angular/forms';
     </div>
   `,
   styles: [`
-    .planner { padding: 20px; height: 100%; display: flex; flex-direction: column; }
-    .planner-header h3 { margin: 0 0 20px 0; font-size: 18px; color: #1e293b; font-weight: 600; }
+    .planner { padding: 20px; height: 100%; display: flex; flex-direction: column; position: relative; }
+    .planner-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .planner-header h3 { margin: 0; font-size: 18px; color: #1e293b; font-weight: 600; }
+    
+    .notification-bell { position: relative; cursor: pointer; font-size: 20px; }
+    .badge { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; font-size: 10px; padding: 2px 5px; }
+    
+    .notification-panel {
+        position: absolute; top: 50px; right: 20px; width: 300px; background: white; 
+        border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; border-radius: 8px;
+    }
+    .panel-header { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; background: #f8fafc; border-radius: 8px 8px 0 0; }
+    .panel-body { max-height: 300px; overflow-y: auto; }
+    .notif-item { padding: 10px; border-bottom: 1px solid #eee; font-size: 12px; }
+    .notif-item.unread { background: #f0fdf4; border-left: 3px solid #22c55e; }
+    .notif-title { font-weight: bold; margin-bottom: 2px; }
+    .notif-time { color: #94a3b8; font-size: 10px; text-align: right; }
+    
     .planner-form { flex: 1; }
     .field { margin-bottom: 16px; position: relative; }
     .field label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -142,9 +195,18 @@ import { FormsModule } from '@angular/forms';
     .submit-btn:disabled { background: #94a3b8; cursor: not-allowed; }
     .popular { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
     .popular .label { font-size: 12px; color: #64748b; display: block; margin-bottom: 8px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip { padding: 6px 12px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 20px; font-size: 11px; color: #475569; cursor: pointer; transition: all 0.2s; }
-    .chip:hover { background: #e2e8f0; }
+    
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+    .history-item { display: flex; align-items: center; background: #f1f5f9; padding: 8px 12px; border-radius: 8px; gap: 8px; }
+    .history-info { flex: 1; cursor: pointer; display: flex; flex-direction: column; }
+    .history-route { font-size: 12px; color: #334155; font-weight: 500; }
+    .history-mode { font-size: 10px; color: #64748b; }
+    .track-btn, .del-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px; }
+    .track-btn:hover, .del-btn:hover { background: #e2e8f0; border-radius: 4px; }
+    .track-btn.active { opacity: 1; }
+    .track-btn { opacity: 0.5; }
+    .empty-history { font-size: 12px; color: #94a3b8; text-align: center; padding: 10px; }
+
     .actions { display: flex; gap: 10px; }
     .monitor-btn { padding: 14px; background: #f59e0b; border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; flex: 0 0 auto; }
     .monitor-btn:hover:not(:disabled) { background: #d97706; }
@@ -162,7 +224,7 @@ import { FormsModule } from '@angular/forms';
       background: white;
       font-size: 24px;
       cursor: pointer;
-       transition: all 0.2s;
+      transition: all 0.2s;
     }
     .transport-modes button:hover {
       background: #f8fafc;
@@ -176,9 +238,9 @@ import { FormsModule } from '@angular/forms';
     .info-note { margin-top: 16px; padding: 12px; background: #fef9c3; border-radius: 8px; font-size: 11px; color: #854d0e; line-height: 1.4; }
   `]
 })
-export class TripPlannerComponent implements AfterViewInit {
+export class TripPlannerComponent implements AfterViewInit, OnInit, OnDestroy {
   @Input() isLoading = false;
-  @Output() planTrip = new EventEmitter<any>(); // Changed to any to support flexible payload
+  @Output() planTrip = new EventEmitter<any>(); 
   @Output() monitorTrip = new EventEmitter<{ origin: string, destination: string }>();
 
   @ViewChild('originInput') originInput!: ElementRef;
@@ -186,8 +248,21 @@ export class TripPlannerComponent implements AfterViewInit {
 
   origin = '';
   destination = '';
+  
+  userId: string | null = null;
+  historyRoutes: any[] = [];
+  notifications: any[] = [];
+  unreadCount = 0;
+  showNotifications = false;
 
-  constructor(private ngZone: NgZone) {}
+  private sseSubscription?: Subscription;
+
+  constructor(
+    private ngZone: NgZone,
+    private historyService: HistoryService,
+    private notificationService: NotificationService,
+    private authService: AuthService
+  ) {}
 
   departureDate = new Date().toISOString().split('T')[0];
   departureTime = this.getCurrentTime();
@@ -199,11 +274,53 @@ export class TripPlannerComponent implements AfterViewInit {
   selectedMode: string = 'driving';
   originCoords: { lat: number, lng: number } | null = null;
 
-  popularRoutes = [
-    { origin: 'Maarif, Casablanca', destination: 'Casa Port, Casablanca' },
-    { origin: 'Technopark, Casablanca', destination: 'Ain Diab, Casablanca' },
-    { origin: 'Casablanca', destination: 'Rabat' },
-  ];
+  ngOnInit() {
+      const username = this.authService.getUsername();
+      if (username) {
+          this.userId = username;
+          this.loadHistory();
+          this.connectNotifications();
+      }
+  }
+
+  ngOnDestroy() {
+      if (this.sseSubscription) {
+          this.sseSubscription.unsubscribe();
+      }
+  }
+
+  loadHistory() {
+      if (!this.userId) return;
+      this.historyService.getHistory().subscribe({
+          next: (data) => this.historyRoutes = data,
+          error: (err) => console.error('Failed to load history', err)
+      });
+  }
+
+  connectNotifications() {
+      if (!this.userId) return;
+      this.notificationService.getNotifications(this.userId).subscribe(
+          data => this.notifications = data
+      );
+      
+      this.sseSubscription = this.notificationService.getServerSentEvent(this.userId).subscribe({
+         next: (event) => {
+             console.log('SSE Event:', event);
+             if (event.title) { // Assuming it's a notification
+                 this.notifications.unshift(event);
+                 this.unreadCount++;
+             }
+         },
+         error: (err) => console.error('SSE Error', err)
+      });
+  }
+
+  toggleNotifications() {
+      this.showNotifications = !this.showNotifications;
+      if (this.showNotifications) {
+          this.unreadCount = 0; // Reset count on open
+      }
+  }
 
   ngAfterViewInit() {
     this.initAutocomplete();
@@ -300,16 +417,56 @@ export class TripPlannerComponent implements AfterViewInit {
         transportMode: this.selectedMode,
         originCoords: this.originCoords
       });
+      
+      // Auto-save to history on submit
+      this.addToHistory();
     }
+  }
+  
+  addToHistory() {
+      if (!this.userId) return;
+      
+      const route = {
+          originLabel: this.origin,
+          originPlaceId: this.origin, // Simplified
+          destinationLabel: this.destination,
+          destinationPlaceId: this.destination, // Simplified
+          mode: this.selectedMode,
+          tracked: false
+      };
+      
+      this.historyService.addToHistory(route).subscribe({
+          next: () => this.loadHistory(),
+          error: (err) => console.error('Error saving history', err)
+      });
   }
 
   onMonitor() {
     if (this.origin && this.destination) {
-      this.monitorTrip.emit({
-        origin: this.origin,
-        destination: this.destination
+      // Prioritize saving/monitoring
+      if (!this.userId) {
+          alert('Veuillez vous connecter pour sauvegarder et suivre des trajets.');
+          return;
+      }
+      
+      const route = {
+          originLabel: this.origin,
+          originPlaceId: this.origin,
+          destinationLabel: this.destination,
+          destinationPlaceId: this.destination,
+          mode: this.selectedMode,
+          tracked: true // Enable tracking immediately
+      };
+
+      this.historyService.addToHistory(route).subscribe({
+          next: (savedRoute) => {
+              this.loadHistory();
+              alert('Trajet sauvegardé et suivi activé !');
+              // Optional: still emit monitorTrip if parent needs it
+              this.monitorTrip.emit({ origin: this.origin, destination: this.destination });
+          },
+          error: (err) => alert('Erreur lors de la sauvegarde.')
       });
-      alert('Monitoring activé ! Vous serez notifié si la durée change.');
     }
   }
 
@@ -333,4 +490,31 @@ export class TripPlannerComponent implements AfterViewInit {
     this.origin = origin;
     this.destination = destination;
   }
+
+  deleteHistory(id: number) {
+      if(confirm('Supprimer ce trajet de l\'historique ?')) {
+          this.historyService.deleteFromHistory(id).subscribe(() => this.loadHistory());
+      }
+  }
+
+  toggleTrack(route: any) {
+      // Toggle logic
+      const newValue = !route.tracked;
+      this.historyService.toggleTracking(route.id, newValue).subscribe({
+          next: (updated) => {
+              route.tracked = updated.tracked;
+          }
+      });
+  }
+
+  getModeIcon(mode: string): string {
+      switch(mode) {
+          case 'driving': return '🚗';
+          case 'walking': return '🚶';
+          case 'transit': return '🚌';
+          case 'bicycling': return '🚲';
+          default: return '📍';
+      }
+  }
 }
+
