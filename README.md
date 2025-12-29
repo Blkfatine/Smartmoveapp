@@ -1,103 +1,98 @@
-# SmartMove - Plateforme de Mobilité Intelligente
+# 🚗 SmartMove - Plateforme de Mobilité Intelligente
 
-Bienvenue dans **SmartMove**, une application microservices pour la gestion de trafic, d'incidents et de météo en temps réel.
+Bienvenue dans **SmartMove**, une plateforme microservices avancée pour la gestion de trafic, d'incidents et la prédiction de trajets en temps réel.
+
+---
+
+## 🏗️ Architecture Technique
+
+Le projet est divisé en **8 Microservices** Spring Boot et un Frontend Angular :
+
+| Service | Port | Description |
+| :--- | :--- | :--- |
+| **Discovery Service** | `8761` | Serveur Eureka (Annuaire des services) |
+| **Gateway Service** | `8888` | API Gateway (Point d'entrée unique) |
+| **User Service** | `8080/8089` | Gestion des utilisateurs & Authentification (JWT) |
+| **Traffic Service** | `8082` | Gestion du trafic routier |
+| **Meteo Service** | `8083` | Données météorologiques |
+| **Incident Service** | `8084` | Gestion des accidents et travaux |
+| **Prediction Service** | `8085` | Algorithmes de prédiction de trajet |
+| **Notification Service** | `8086` | Notifications temps réel (Kafka + WebSocket) |
+| **Frontend** | `4200` | Application Angular 20 (Standalone Components) |
+
+**Technologies Clés :**
+*   **Backend :** Java 17, Spring Boot 3.3.7, OpenFeign, Resilience4j (Circuit Breaker).
+*   **Data & Message :** MySQL 8, Apache Kafka, Zookeeper.
+*   **Frontend :** Angular 20, Google Maps API, Bootstrap/Tailwind.
+
+---
 
 ## 📋 Prérequis
 
-Avant de commencer, assurez-vous d'avoir installé :
+Avant de commencer, installez :
 1.  **Java JDK 17** ou supérieur.
-2.  **Node.js** (v18 ou supérieur) et **npm**.
-3.  **XAMPP** (ou un serveur MySQL autonome).
-4.  **Maven** (optionnel, `mvnw` est inclus).
+2.  **Node.js 18+** & **NPM**.
+3.  **MySQL** (via XAMPP ou Docker).
+4.  **Apache Kafka & Zookeeper** (Requis pour les notifications).
 
 ---
 
-## 🚀 Installation et Lancement (Pas à Pas)
+## 🚀 Guide de Démarrage (Pas à Pas)
 
-### Étape 1 : Configuration de la Base de Données
+### 1️⃣ Base de Données & Kafka
+1.  Lancez **XAMPP** (Apache + MySQL).
+2.  Créez la base de données : `smartmove_db`.
+3.  Démarrez **Zookeeper** puis **Kafka Server** (Port 9092).
 
-1.  Lancez **XAMPP Control Panel**.
-2.  Démarrez le module **Apache** et **MySQL**.
-3.  Ouvrez votre navigateur sur [http://localhost/phpmyadmin](http://localhost/phpmyadmin).
-4.  Créez une nouvelle base de données nommée exactement :
-    ```sql
-    smartmove_db
-    ```
-    *(Le backend créera automatiquement les tables au lancement)*.
+### 2️⃣ Lancement du Backend (Ordre Strict)
+Ouvrez des terminaux séparés pour chaque service :
 
-### Étape 2 : Lancement du Backend (Microservices)
+**Groupe 1 : Infrastructure**
+```bash
+# 1. Discovery (Attendre qu'il soit UP)
+cd discovery-service && mvn spring-boot:run
 
-Les services doivent être lancés dans un ordre précis. Ouvrez plusieurs terminaux (ou onglets de terminal) dans le dossier racine du projet.
-
-**1. Discovery Service (Eureka)**
-```cmd
-cd discovery-service
-mvn spring-boot:run
+# 2. Gateway
+cd gateway-service && mvn spring-boot:run
 ```
-*Attendez que le service démarre (port 8761).*
 
-**2. Gateway Service**
-```cmd
-cd gateway-service
-mvn spring-boot:run
+**Groupe 2 : Services Métier**
+```bash
+# 3. User Service (Crée les tables)
+cd user-service && mvn spring-boot:run
+
+# 4. Autres services (Ordre libre)
+cd traffic-service && mvn spring-boot:run
+cd meteo-service && mvn spring-boot:run
+cd incident-service && mvn spring-boot:run
+cd prediction-service && mvn spring-boot:run
+cd notification-service && mvn spring-boot:run
 ```
-*(port 8888)*
 
-**3. User Service (Authentification & DB)**
-```cmd
-cd user-service
-mvn spring-boot:run
+### 3️⃣ Lancement du Frontend
+```bash
+cd frontend
+npm install  # (Premier lancement uniquement)
+ng serve
 ```
-*Ce service se connectera à votre base de données MySQL et créera les tables.*
-
-**4. Autres Services (Ordre libre)**
-Lancez les autres services selon vos besoins :
-```cmd
-cd incident-service
-mvn spring-boot:run
-```
-```cmd
-cd traffic-service
-mvn spring-boot:run
-```
-etc.
-
-### Étape 3 : Lancement du Frontend (Angular)
-
-1.  Ouvrez un nouveau terminal dans le dossier `frontend`.
-2.  Installez les dépendances (première fois seulement) :
-    ```cmd
-    npm install
-    ```
-3.  Lancez l'application :
-    ```cmd
-    npm start
-    ```
-    (ou `ng serve`)
-4.  L'application sera accessible sur : [http://localhost:4200](http://localhost:4200)
+Accédez à l'application sur : **http://localhost:4200**
 
 ---
 
-## 👤 Utilisation
+## 🛡️ Fonctionnalités Clés (Pour l'Examen)
 
-1.  **Page d'Accueil** : Rendez-vous sur `http://localhost:4200`. Vous verrez la nouvelle page de garde.
-2.  **Inscription** :
-    *   Cliquez sur "Inscription".
-    *   Créez un compte (Username, Email, Mot de passe).
-    *   Si tout va bien, vous serez redirigé vers la connexion.
-3.  **Connexion** :
-    *   Connectez-vous avec vos identifiants.
-    *   Vous accéderez au **Tableau de Bord** sécurisé.
-4.  **Sécurité** :
-    *   Toutes les routes (`/dashboard`, `/home`) sont protégées.
-    *   Si vous essayez d'y accéder sans connexion, vous serez redirigé vers l'accueil.
+*   **Sécurité :** Authentification JWT Stateless. Guards Angular pour protéger les routes.
+*   **Résilience :** Utilisation de `@CircuitBreaker` pour gérer les pannes des services externes (Météo/TomTom).
+*   **Communication :**
+    *   *Synchrone :* OpenFeign (ex: Prediction appelle Traffic).
+    *   *Asynchrone :* Kafka (ex: Incident détecté -> Envoi notif).
+*   **DTO Pattern :** Utilisation stricte de DTOs pour ne pas exposer les Entités JPA.
 
 ---
 
-## 🛠️ Dépannage
+## 🛠️ Dépannage Rapide
+*   **Erreur `Connection Refused`** : Vérifiez que Discovery (8761) ou Kafka (9092) sont lancés.
+*   **Port déjà utilisé** : Vérifiez qu'aucun processus fantôme java ne tourne (`jps` command).
+*   **Front Page Blanche** : Vérifiez la console F12 pour les erreurs CORS ou de connexion.
 
--   **Erreur Database** : Vérifiez que XAMPP est lancé et que la base `smartmove_db` existe.
--   **Erreur Connexion** : Vérifiez que `gateway-service` (8888) et `user-service` (8089) sont lancés.
--   **Ports occupés** : Assurez-vous que les ports 8761, 8888, 8089 ne sont pas utilisés par une autre application.
-
-Bonne utilisation ! 🚗
+Bonne chance pour le quiz ! 🎓
