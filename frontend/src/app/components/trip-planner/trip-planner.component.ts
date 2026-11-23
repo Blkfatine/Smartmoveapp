@@ -50,6 +50,7 @@ import { Subscription } from 'rxjs';
               #originInput
               type="text" 
               [(ngModel)]="origin" 
+              (input)="originCoords = null"
               name="origin" 
               list="moroccan-places"
               placeholder="Ex: Maarif, Technopark, Casa Port..."
@@ -67,6 +68,7 @@ import { Subscription } from 'rxjs';
               #destInput
               type="text" 
               [(ngModel)]="destination" 
+              (input)="destinationCoords = null"
               name="destination" 
               list="moroccan-places"
               placeholder="Ex: Casa Port, Ain Diab, Sidi Maarouf..."
@@ -74,9 +76,20 @@ import { Subscription } from 'rxjs';
           </div>
         </div>
 
+        <div class="map-hint-banner">
+          <span class="hint-icon">💡</span>
+          <span>Cliquez directement sur la carte pour définir un point de départ ou d'arrivée exact</span>
+        </div>
+
         <datalist id="moroccan-places">
+          <option value="Riad El Ali, Casablanca"></option>
+          <option value="Résidence Riad El Ali, Casablanca"></option>
           <option value="Maarif, Casablanca"></option>
           <option value="Casa Port, Casablanca"></option>
+          <option value="Avenue 2 Mars, Casablanca"></option>
+          <option value="Boulevard Modibo Keita, Casablanca"></option>
+          <option value="L'Hermitage, Casablanca"></option>
+          <option value="Polo, Casablanca"></option>
           <option value="Technopark, Casablanca"></option>
           <option value="Ain Diab, Casablanca"></option>
           <option value="Sidi Maarouf, Casablanca"></option>
@@ -87,6 +100,11 @@ import { Subscription } from 'rxjs';
           <option value="Centre Ville, Casablanca"></option>
           <option value="Hay Hassani, Casablanca"></option>
           <option value="Oasis, Casablanca"></option>
+          <option value="Gare Casa Voyageurs, Casablanca"></option>
+          <option value="Gare Casa Oasis, Casablanca"></option>
+          <option value="Derb Sultan, Casablanca"></option>
+          <option value="Californie, Casablanca"></option>
+          <option value="Morocco Mall, Casablanca"></option>
           <option value="Rabat"></option>
           <option value="Marrakech"></option>
         </datalist>
@@ -254,6 +272,20 @@ import { Subscription } from 'rxjs';
       border-color: #3b82f6;
       box-shadow: 0 0 0 2px #3b82f6;
     }
+    .map-hint-banner {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 14px;
+      padding: 7px 10px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      font-size: 11px;
+      color: #1d4ed8;
+      line-height: 1.3;
+    }
+    .hint-icon { font-size: 14px; flex-shrink: 0; }
     .info-note { margin-top: 16px; padding: 12px; background: #fef9c3; border-radius: 8px; font-size: 11px; color: #854d0e; line-height: 1.4; }
   `]
 })
@@ -293,6 +325,7 @@ export class TripPlannerComponent implements AfterViewInit, OnInit, OnDestroy {
   
   selectedMode: string = 'driving';
   originCoords: { lat: number, lng: number } | null = null;
+  destinationCoords: { lat: number, lng: number } | null = null;
 
   ngOnInit() {
       const username = this.authService.getUsername();
@@ -397,6 +430,44 @@ export class TripPlannerComponent implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
+  setPointFromMap(type: 'origin' | 'destination', coords: { lat: number, lng: number }) {
+    const coordStr = `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lng}&format=json`;
+
+    this.http.get<any>(url).subscribe({
+      next: (res) => {
+        this.ngZone.run(() => {
+          let placeName = '';
+          if (res?.address) {
+            placeName = res.address.road || res.address.suburb || res.address.neighbourhood || res.address.residential || '';
+          }
+          if (!placeName && res?.display_name) {
+            placeName = res.display_name.split(',')[0];
+          }
+          const label = placeName ? `${placeName}, Casablanca` : coordStr;
+          if (type === 'origin') {
+            this.origin = label;
+            this.originCoords = coords;
+          } else {
+            this.destination = label;
+            this.destinationCoords = coords;
+          }
+        });
+      },
+      error: () => {
+        this.ngZone.run(() => {
+          if (type === 'origin') {
+            this.origin = coordStr;
+            this.originCoords = coords;
+          } else {
+            this.destination = coordStr;
+            this.destinationCoords = coords;
+          }
+        });
+      }
+    });
+  }
+
   getCurrentTime(): string {
     const now = new Date();
     return now.getHours().toString().padStart(2, '0') + ':' +
@@ -411,7 +482,8 @@ export class TripPlannerComponent implements AfterViewInit, OnInit, OnDestroy {
         date: this.departureDate,
         time: this.departureTime,
         transportMode: this.selectedMode,
-        originCoords: this.originCoords
+        originCoords: this.originCoords,
+        destinationCoords: this.destinationCoords
       });
       
       // Auto-save to history on submit

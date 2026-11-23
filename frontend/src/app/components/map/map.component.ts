@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Observable, from, of } from 'rxjs';
@@ -14,6 +14,7 @@ import { MeteoService } from '../../services/meteo.service';
   styleUrls: ['./map.component.css']
 })
 export class MapComponent implements OnInit, AfterViewInit {
+  @Output() pointSelected = new EventEmitter<{ type: 'origin' | 'destination', coords: { lat: number, lng: number } }>();
 
   private map!: L.Map;
   private currentPolyline: L.Polyline | null = null;
@@ -29,12 +30,26 @@ export class MapComponent implements OnInit, AfterViewInit {
   // Default center: Casablanca, Morocco
   defaultCenter = { lat: 33.5731, lng: -7.5898 };
 
-  // Fallback coordinates for Moroccan locations
+  // Accurate coordinates database for Moroccan locations & Casablanca neighborhoods/residences
   private moroccanCoords: { [key: string]: { lat: number, lng: number } } = {
+    'riad el ali': { lat: 33.5635, lng: -7.6170 },
+    'riad al ali': { lat: 33.5635, lng: -7.6170 },
+    'residence riad el ali': { lat: 33.5635, lng: -7.6170 },
+    'riad ali': { lat: 33.5635, lng: -7.6170 },
+    '2 mars': { lat: 33.5660, lng: -7.6140 },
+    'modibo keita': { lat: 33.5620, lng: -7.6195 },
+    'l\'hermitage': { lat: 33.5670, lng: -7.6210 },
+    'hermitage': { lat: 33.5670, lng: -7.6210 },
+    'bachkou': { lat: 33.5620, lng: -7.6220 },
+    'polo': { lat: 33.5590, lng: -7.6150 },
+    'californie': { lat: 33.5380, lng: -7.6250 },
     'maarif': { lat: 33.5833, lng: -7.6333 },
     'casa port': { lat: 33.6033, lng: -7.6164 },
+    'casa voyageurs': { lat: 33.5890, lng: -7.5905 },
+    'casa oasis': { lat: 33.5560, lng: -7.6320 },
     'technopark': { lat: 33.5167, lng: -7.6500 },
     'ain diab': { lat: 33.5900, lng: -7.6700 },
+    'morocco mall': { lat: 33.5750, lng: -7.7080 },
     'anfa': { lat: 33.5783, lng: -7.6481 },
     'centre ville': { lat: 33.5950, lng: -7.6200 },
     'sidi maarouf': { lat: 33.5350, lng: -7.6650 },
@@ -43,6 +58,12 @@ export class MapComponent implements OnInit, AfterViewInit {
     'gauthier': { lat: 33.5870, lng: -7.6280 },
     'oasis': { lat: 33.5650, lng: -7.6450 },
     'hay hassani': { lat: 33.5550, lng: -7.6800 },
+    'derb sultan': { lat: 33.5680, lng: -7.5990 },
+    'beausejour': { lat: 33.5700, lng: -7.6550 },
+    'val fleuri': { lat: 33.5780, lng: -7.6360 },
+    'ain sebaa': { lat: 33.6080, lng: -7.5350 },
+    'sidi bernoussi': { lat: 33.6150, lng: -7.5050 },
+    'bouskoura': { lat: 33.4500, lng: -7.6500 },
     'casablanca': { lat: 33.5731, lng: -7.5898 },
     'rabat': { lat: 34.0209, lng: -6.8416 },
     'marrakech': { lat: 31.6295, lng: -7.9811 },
@@ -86,19 +107,69 @@ export class MapComponent implements OnInit, AfterViewInit {
     }).addTo(this.map);
 
     this.getUserLocation();
+
+    // Map Click Listener to select origin / destination directly on map
+    this.map.on('click', (e: L.LeafletMouseEvent) => {
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
+      const popupDiv = document.createElement('div');
+      popupDiv.style.fontFamily = 'inherit';
+      popupDiv.style.padding = '4px';
+      popupDiv.style.display = 'flex';
+      popupDiv.style.flexDirection = 'column';
+      popupDiv.style.gap = '6px';
+      popupDiv.innerHTML = `
+        <strong style="color: #0f172a; font-size: 13px;">📍 Position choisie</strong>
+        <span style="font-size: 11px; color: #64748b;">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>
+        <div style="display: flex; gap: 6px; margin-top: 4px;">
+          <button id="btn-map-start" style="background: #10b981; color: white; border: none; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">Départ</button>
+          <button id="btn-map-end" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">Arrivée</button>
+        </div>
+      `;
+
+      L.popup()
+        .setLatLng(e.latlng)
+        .setContent(popupDiv)
+        .openOn(this.map);
+
+      setTimeout(() => {
+        const startBtn = document.getElementById('btn-map-start');
+        const endBtn = document.getElementById('btn-map-end');
+        if (startBtn) {
+          startBtn.onclick = () => {
+            this.pointSelected.emit({ type: 'origin', coords: { lat, lng } });
+            this.map.closePopup();
+          };
+        }
+        if (endBtn) {
+          endBtn.onclick = () => {
+            this.pointSelected.emit({ type: 'destination', coords: { lat, lng } });
+            this.map.closePopup();
+          };
+        }
+      }, 50);
+    });
   }
 
   public calculateRoute(
-    originCoords: { lat: number, lng: number },
-    destination: string,
+    origin: string | { lat: number, lng: number },
+    destination: string | { lat: number, lng: number },
     transportMode: string = 'driving'
   ): Observable<any> {
-    this.updateWeather(originCoords.lat, originCoords.lng, 'Départ');
+    const origin$ = typeof origin === 'string' ? this.geocode(origin) : of(origin);
+    const dest$ = typeof destination === 'string' ? this.geocode(destination) : of(destination);
 
-    return this.geocode(destination).pipe(
-      switchMap(destCoords => {
-        if (!destCoords) return of(null);
-        return this.fetchOsrmRoute(originCoords, destCoords, transportMode);
+    return origin$.pipe(
+      switchMap(originCoords => {
+        if (!originCoords) return of(null);
+        this.updateWeather(originCoords.lat, originCoords.lng, typeof origin === 'string' ? origin : 'Départ');
+
+        return dest$.pipe(
+          switchMap(destCoords => {
+            if (!destCoords) return of(null);
+            return this.fetchOsrmRoute(originCoords, destCoords, transportMode);
+          })
+        );
       })
     );
   }
@@ -108,19 +179,7 @@ export class MapComponent implements OnInit, AfterViewInit {
     destination: string,
     transportMode: string = 'driving'
   ): Observable<any> {
-    return this.geocode(origin).pipe(
-      switchMap(originCoords => {
-        if (!originCoords) return of(null);
-        this.updateWeather(originCoords.lat, originCoords.lng, origin);
-
-        return this.geocode(destination).pipe(
-          switchMap(destCoords => {
-            if (!destCoords) return of(null);
-            return this.fetchOsrmRoute(originCoords, destCoords, transportMode);
-          })
-        );
-      })
-    );
+    return this.calculateRoute(origin, destination, transportMode);
   }
 
   private fetchOsrmRoute(
@@ -392,7 +451,7 @@ export class MapComponent implements OnInit, AfterViewInit {
     // 3. Nominatim Geocoding restricted strictly to Morocco with Casablanca priority
     const query = (key.includes('maroc') || key.includes('morocco')) ? address : `${address}, Casablanca, Maroc`;
     const encoded = encodeURIComponent(query);
-    const url = `https://nominatim.openstreetmap.org/search?q=${encoded}&countrycodes=ma&format=json&limit=1`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encoded}&countrycodes=ma&viewbox=-7.8,33.7,-7.4,33.4&format=json&limit=1`;
 
     return this.http.get<any[]>(url).pipe(
       map(results => {

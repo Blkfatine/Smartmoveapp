@@ -20,6 +20,25 @@ public class TrafficServiceImpl implements TrafficService {
     // Fallback coordinates for Moroccan locations (Casablanca, Rabat, etc.)
     private static final Map<String, String> MOROCCAN_COORDS = new HashMap<>();
     static {
+        MOROCCAN_COORDS.put("riad el ali", "33.5635,-7.6170");
+        MOROCCAN_COORDS.put("riad al ali", "33.5635,-7.6170");
+        MOROCCAN_COORDS.put("residence riad el ali", "33.5635,-7.6170");
+        MOROCCAN_COORDS.put("riad ali", "33.5635,-7.6170");
+        MOROCCAN_COORDS.put("2 mars", "33.5660,-7.6140");
+        MOROCCAN_COORDS.put("modibo keita", "33.5620,-7.6195");
+        MOROCCAN_COORDS.put("l'hermitage", "33.5670,-7.6210");
+        MOROCCAN_COORDS.put("hermitage", "33.5670,-7.6210");
+        MOROCCAN_COORDS.put("bachkou", "33.5620,-7.6220");
+        MOROCCAN_COORDS.put("polo", "33.5590,-7.6150");
+        MOROCCAN_COORDS.put("californie", "33.5380,-7.6250");
+        MOROCCAN_COORDS.put("morocco mall", "33.5750,-7.7080");
+        MOROCCAN_COORDS.put("casa voyageurs", "33.5890,-7.5905");
+        MOROCCAN_COORDS.put("casa oasis", "33.5560,-7.6320");
+        MOROCCAN_COORDS.put("derb sultan", "33.5680,-7.5990");
+        MOROCCAN_COORDS.put("beausejour", "33.5700,-7.6550");
+        MOROCCAN_COORDS.put("val fleuri", "33.5780,-7.6360");
+        MOROCCAN_COORDS.put("ain sebaa", "33.6080,-7.5350");
+        MOROCCAN_COORDS.put("sidi bernoussi", "33.6150,-7.5050");
         MOROCCAN_COORDS.put("maarif", "33.5833,-7.6333");
         MOROCCAN_COORDS.put("casa port", "33.6033,-7.6164");
         MOROCCAN_COORDS.put("technopark", "33.5167,-7.6500");

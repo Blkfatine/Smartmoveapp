@@ -50,6 +50,14 @@ public class PredictionService {
 
     static {
         // Initialize distance matrix for Casablanca neighborhoods
+        addDistance("riad el ali", "maarif", 2.8);
+        addDistance("riad el ali", "casa port", 5.2);
+        addDistance("riad el ali", "technopark", 5.5);
+        addDistance("riad el ali", "centre ville", 4.0);
+        addDistance("riad el ali", "oasis", 3.2);
+        addDistance("riad el ali", "ain diab", 6.8);
+        addDistance("riad el ali", "sidi maarouf", 6.0);
+
         addDistance("maarif", "casa port", 6.5);
         addDistance("maarif", "technopark", 8.0);
         addDistance("maarif", "ain diab", 5.0);
@@ -109,7 +117,26 @@ public class PredictionService {
     private static final Map<String, double[]> LOCATION_COORDS = new HashMap<>();
 
     static {
-        // Casablanca neighborhoods
+        // Casablanca neighborhoods & residences
+        LOCATION_COORDS.put("riad el ali", new double[] { 33.5635, -7.6170 });
+        LOCATION_COORDS.put("riad al ali", new double[] { 33.5635, -7.6170 });
+        LOCATION_COORDS.put("residence riad el ali", new double[] { 33.5635, -7.6170 });
+        LOCATION_COORDS.put("riad ali", new double[] { 33.5635, -7.6170 });
+        LOCATION_COORDS.put("2 mars", new double[] { 33.5660, -7.6140 });
+        LOCATION_COORDS.put("modibo keita", new double[] { 33.5620, -7.6195 });
+        LOCATION_COORDS.put("l'hermitage", new double[] { 33.5670, -7.6210 });
+        LOCATION_COORDS.put("hermitage", new double[] { 33.5670, -7.6210 });
+        LOCATION_COORDS.put("bachkou", new double[] { 33.5620, -7.6220 });
+        LOCATION_COORDS.put("polo", new double[] { 33.5590, -7.6150 });
+        LOCATION_COORDS.put("californie", new double[] { 33.5380, -7.6250 });
+        LOCATION_COORDS.put("morocco mall", new double[] { 33.5750, -7.7080 });
+        LOCATION_COORDS.put("casa voyageurs", new double[] { 33.5890, -7.5905 });
+        LOCATION_COORDS.put("casa oasis", new double[] { 33.5560, -7.6320 });
+        LOCATION_COORDS.put("derb sultan", new double[] { 33.5680, -7.5990 });
+        LOCATION_COORDS.put("beausejour", new double[] { 33.5700, -7.6550 });
+        LOCATION_COORDS.put("val fleuri", new double[] { 33.5780, -7.6360 });
+        LOCATION_COORDS.put("ain sebaa", new double[] { 33.6080, -7.5350 });
+        LOCATION_COORDS.put("sidi bernoussi", new double[] { 33.6150, -7.5050 });
         LOCATION_COORDS.put("maarif", new double[] { 33.5833, -7.6333 });
         LOCATION_COORDS.put("casa port", new double[] { 33.6033, -7.6164 });
         LOCATION_COORDS.put("technopark", new double[] { 33.5167, -7.6500 });
@@ -410,7 +437,18 @@ public class PredictionService {
      * Get coordinates for a location
      */
     private double[] getCoordinates(String location) {
-        String normalized = normalizeLocation(location);
+        if (location == null || location.trim().isEmpty()) return null;
+        String raw = location.trim();
+
+        // 1. Direct coordinate check: "lat,lon" or "lat, lon"
+        if (raw.matches("^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$")) {
+            String[] parts = raw.split(",");
+            try {
+                return new double[] { Double.parseDouble(parts[0].trim()), Double.parseDouble(parts[1].trim()) };
+            } catch (NumberFormatException ignored) {}
+        }
+
+        String normalized = normalizeLocation(raw);
 
         // Direct lookup
         if (LOCATION_COORDS.containsKey(normalized)) {

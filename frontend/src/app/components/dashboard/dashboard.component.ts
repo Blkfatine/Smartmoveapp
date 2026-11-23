@@ -30,6 +30,7 @@ import { AuthService } from '../../services/auth.service';
         <!-- LEFT PANEL - Trip Planner (Fixed Width) -->
         <section class="panel panel-left">
           <app-trip-planner 
+            #tripPlanner
             [isLoading]="isLoading" 
             (planTrip)="onPlanTrip($event)"
             (monitorTrip)="onMonitorTrip($event)">
@@ -39,7 +40,7 @@ import { AuthService } from '../../services/auth.service';
         <!-- CENTER PANEL - Map -->
         <section class="panel panel-center">
           <div class="map-wrapper">
-            <app-map></app-map>
+            <app-map (pointSelected)="onMapPointSelected($event)"></app-map>
           </div>
           
           <!-- Route Info Overlay -->
@@ -207,21 +208,36 @@ export class DashboardComponent implements OnDestroy {
     // Moved to App shell
   }
 
+  @ViewChild('tripPlanner') tripPlannerComponent?: TripPlannerComponent;
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
-  onPlanTrip(event: { origin: string, destination: string, date: string, time: string, transportMode: string, originCoords?: { lat: number, lng: number } }) {
+  onMapPointSelected(event: { type: 'origin' | 'destination', coords: { lat: number, lng: number } }) {
+    if (this.tripPlannerComponent) {
+      this.tripPlannerComponent.setPointFromMap(event.type, event.coords);
+    }
+  }
+
+  onPlanTrip(event: {
+    origin: string,
+    destination: string,
+    date: string,
+    time: string,
+    transportMode: string,
+    originCoords?: { lat: number, lng: number },
+    destinationCoords?: { lat: number, lng: number }
+  }) {
     console.log('Planning trip:', event);
     this.isLoading = true;
     this.currentPrediction = null;
     this.targetLocation = null;
     this.error = null;
 
-    // 1. Get Route from Map
+    // 1. Get Route from Map using exact coordinates if available, or address strings
+    const startPoint = event.originCoords || event.origin;
+    const endPoint = event.destinationCoords || event.destination;
+
     const routeObservable = this.mapComponent ?
-      (event.originCoords ?
-        this.mapComponent.calculateRoute(event.originCoords, event.destination, event.transportMode) :
-        this.mapComponent.calculateRouteFromStrings(event.origin, event.destination, event.transportMode)
-      ) : null;
+      this.mapComponent.calculateRoute(startPoint, endPoint, event.transportMode) : null;
 
     if (!routeObservable) {
       this.error = "Erreur interne: Carte non initialisée";
