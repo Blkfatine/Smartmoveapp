@@ -34,7 +34,7 @@ public class MeteoServiceTest {
         savedMeteo.setTemperature(25.5);
         savedMeteo.setPrecipitation(0.0);
         savedMeteo.setVent(15.0);
-        savedMeteo.setCondition("Sunny");
+        savedMeteo.setWeatherCondition("Sunny");
 
         when(meteoRepository.save(any(Meteo.class))).thenReturn(savedMeteo);
 
@@ -53,7 +53,7 @@ public class MeteoServiceTest {
         // Given
         Meteo meteo = new Meteo();
         meteo.setId(1L);
-        meteo.setCondition("Cloudy");
+        meteo.setWeatherCondition("Cloudy");
         meteo.setTemperature(20.0);
 
         when(meteoRepository.findTopByOrderByCreatedAtDesc()).thenReturn(Optional.of(meteo));

@@ -1,6 +1,7 @@
 import { Component, OnInit, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../services/auth.service';
 import { MeteoService } from '../../services/meteo.service';
 import { PredictionLogicService } from '../../services/prediction-logic.service';
@@ -341,7 +342,8 @@ export class HomeComponent implements OnInit {
     public authService: AuthService,
     private meteoService: MeteoService,
     private predictionLogic: PredictionLogicService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private http: HttpClient
   ) { }
 
   ngOnInit(): void {
@@ -384,21 +386,19 @@ export class HomeComponent implements OnInit {
   }
 
   reverseGeocode(lat: number, lng: number) {
-      const geocoder = new google.maps.Geocoder();
-      const latlng = { lat: lat, lng: lng };
-      
-      geocoder.geocode({ location: latlng }, (results, status) => {
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
+      this.http.get<any>(url).subscribe({
+        next: (res) => {
           this.ngZone.run(() => {
-              if (status === 'OK' && results && results[0]) {
-                  // Find the city/locality component
-                  const cityComponent = results[0].address_components.find(c => 
-                      c.types.includes('locality') || c.types.includes('administrative_area_level_1')
-                  );
-                  this.currentCity = cityComponent ? cityComponent.long_name : 'Ma Position';
-              } else {
-                  this.currentCity = 'Ma Position';
-              }
+            const city = res?.address?.city || res?.address?.town || res?.address?.suburb || 'Casablanca';
+            this.currentCity = city;
           });
+        },
+        error: () => {
+          this.ngZone.run(() => {
+            this.currentCity = 'Casablanca';
+          });
+        }
       });
   }
 }

@@ -67,7 +67,10 @@ import { AuthService } from '../../services/auth.service';
 
           <!-- Results -->
           <div *ngIf="currentPrediction && !isLoading">
-            <app-prediction-results [prediction]="currentPrediction"></app-prediction-results>
+            <app-prediction-results 
+              [prediction]="currentPrediction"
+              (selectRoute)="onRouteOptionSelected($event)">
+            </app-prediction-results>
             
             <!-- Weekly Forecast for the location -->
             <app-weekly-forecast 
@@ -246,10 +249,18 @@ export class DashboardComponent implements OnDestroy {
 
         this.meteoService.getLiveWeather(lat, lng).subscribe({
           next: (weatherData) => {
-            // 3. Build Prediction Model
+            // 3. Build Prediction Model with realistic calibrated factors
             try {
               const mode = this.mapModeToEnum(event.transportMode);
-              this.currentPrediction = this.predictionLogicService.buildUIModel(routeResult, weatherData, mode);
+              this.currentPrediction = this.predictionLogicService.buildUIModel(
+                routeResult,
+                weatherData,
+                mode,
+                event.time,
+                event.date,
+                event.origin,
+                event.destination
+              );
               this.isLoading = false;
             } catch (e) {
               console.error("Error building prediction model", e);
@@ -262,7 +273,15 @@ export class DashboardComponent implements OnDestroy {
             // Fallback without weather
             try {
               const mode = this.mapModeToEnum(event.transportMode);
-              this.currentPrediction = this.predictionLogicService.buildUIModel(routeResult, null, mode);
+              this.currentPrediction = this.predictionLogicService.buildUIModel(
+                routeResult,
+                null,
+                mode,
+                event.time,
+                event.date,
+                event.origin,
+                event.destination
+              );
               this.isLoading = false;
             } catch (e2) {
               this.error = "Impossible de récupérer les données.";
@@ -287,6 +306,14 @@ export class DashboardComponent implements OnDestroy {
     if (lower === 'walking' || lower === 'marche') return 'walking';
     if (lower === 'transit' || lower === 'transport') return 'transit';
     return 'driving';
+  }
+
+  onRouteOptionSelected(option: any) {
+    if (!this.currentPrediction) return;
+    this.currentPrediction = this.predictionLogicService.selectRouteOption(this.currentPrediction, option.id);
+    if (this.mapComponent && option.coordinates) {
+      this.mapComponent.highlightRoute(option.coordinates, option.mode === 'transit', option.transitDetails);
+    }
   }
 
   onMonitorTrip(event: { origin: string, destination: string }) {

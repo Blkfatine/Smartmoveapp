@@ -1,11 +1,12 @@
 package org.example.incidentservice.service;
 
+import jakarta.annotation.PostConstruct;
 import org.example.incidentservice.client.TomTomIncidentClient;
-import org.example.incidentservice.client.dto.TomTomIncident;
 import org.example.incidentservice.client.dto.TomTomResponse;
 import org.example.incidentservice.enums.Severity;
 import org.example.incidentservice.model.Incident;
 import org.example.incidentservice.repository.IncidentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,11 +16,21 @@ import java.util.List;
 public class IncidentServiceImpl implements IncidentService {
 
     private final IncidentRepository incidentRepository;
-    private final TomTomIncidentClient tomTomIncidentClient;
+    private final TomTomIncidentClient incidentClient;
 
-    public IncidentServiceImpl(IncidentRepository incidentRepository, TomTomIncidentClient tomTomIncidentClient) {
+    @Autowired(required = false)
+    private IncidentProducer incidentProducer;
+
+    public IncidentServiceImpl(IncidentRepository incidentRepository, TomTomIncidentClient incidentClient) {
         this.incidentRepository = incidentRepository;
-        this.tomTomIncidentClient = tomTomIncidentClient;
+        this.incidentClient = incidentClient;
+    }
+
+    @PostConstruct
+    public void initDefaultIncidents() {
+        if (incidentRepository.count() == 0) {
+            importFromTomTom();
+        }
     }
 
     @Override
@@ -30,12 +41,26 @@ public class IncidentServiceImpl implements IncidentService {
     @Override
     public Incident getById(Long id) {
         return incidentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Incident not found"));
+                .orElseThrow(() -> new RuntimeException("Incident not found with id: " + id));
     }
 
     @Override
     public Incident createIncident(Incident incident) {
-        return incidentRepository.save(incident);
+        if (incident.getTimestamp() == null) {
+            incident.setTimestamp(LocalDateTime.now());
+        }
+        Incident saved = incidentRepository.save(incident);
+
+        // Publish to Kafka topic 'incident-updates'
+        if (incidentProducer != null) {
+            try {
+                incidentProducer.sendIncidentUpdate(saved);
+            } catch (Exception e) {
+                System.err.println("Warning: Could not publish incident to Kafka: " + e.getMessage());
+            }
+        }
+
+        return saved;
     }
 
     @Override
@@ -43,30 +68,26 @@ public class IncidentServiceImpl implements IncidentService {
         incidentRepository.deleteById(id);
     }
 
-    // 🚀 Import depuis TomTom
     @Override
     public List<Incident> importFromTomTom() {
+        TomTomResponse response = incidentClient.getIncidents();
 
-        TomTomResponse tomtomResponse = tomTomIncidentClient.getIncidents();
-
-        if (tomtomResponse == null || tomtomResponse.getIncidents() == null) {
+        if (response == null || response.getIncidents() == null) {
             return List.of();
         }
 
-        List<Incident> incidents = tomtomResponse.getIncidents().stream()
+        List<Incident> incidents = response.getIncidents().stream()
                 .map(t -> {
                     Incident i = new Incident();
-                    i.setType("TomTom");
+                    i.setType("ROAD_INCIDENT");
 
-                    // description
                     String desc = null;
                     if (t.getProperties() != null) {
                         desc = t.getProperties().getString("description");
                         if (desc == null) desc = t.getProperties().getString("text");
                     }
-                    i.setDescription(desc != null ? desc : "Incident TomTom");
+                    i.setDescription(desc != null ? desc : "Incident de circulation signalé");
 
-                    // ✅ CORRECTION : coordinates est maintenant List<List<Double>>
                     if (t.getGeometry() != null && t.getGeometry().getCoordinates() != null
                             && !t.getGeometry().getCoordinates().isEmpty()) {
 
@@ -84,6 +105,17 @@ public class IncidentServiceImpl implements IncidentService {
                 })
                 .toList();
 
-        return incidentRepository.saveAll(incidents);
+        List<Incident> savedList = incidentRepository.saveAll(incidents);
+
+        // Broadcast imported incidents to Kafka
+        if (incidentProducer != null) {
+            for (Incident inc : savedList) {
+                try {
+                    incidentProducer.sendIncidentUpdate(inc);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        return savedList;
     }
 }

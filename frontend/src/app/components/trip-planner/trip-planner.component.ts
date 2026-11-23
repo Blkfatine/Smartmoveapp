@@ -1,7 +1,7 @@
-/// <reference types="google.maps" />
 import { Component, EventEmitter, Output, Input, ViewChild, ElementRef, AfterViewInit, NgZone, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { HistoryService } from '../../services/history.service';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
@@ -51,7 +51,8 @@ import { Subscription } from 'rxjs';
               type="text" 
               [(ngModel)]="origin" 
               name="origin" 
-              placeholder="Entrez le point de départ"
+              list="moroccan-places"
+              placeholder="Ex: Maarif, Technopark, Casa Port..."
             >
             <button type="button" class="loc-btn" (click)="useCurrentLocation()" title="Ma position actuelle">📍</button>
           </div>
@@ -67,10 +68,28 @@ import { Subscription } from 'rxjs';
               type="text" 
               [(ngModel)]="destination" 
               name="destination" 
-              placeholder="Entrez la destination"
+              list="moroccan-places"
+              placeholder="Ex: Casa Port, Ain Diab, Sidi Maarouf..."
             >
           </div>
         </div>
+
+        <datalist id="moroccan-places">
+          <option value="Maarif, Casablanca"></option>
+          <option value="Casa Port, Casablanca"></option>
+          <option value="Technopark, Casablanca"></option>
+          <option value="Ain Diab, Casablanca"></option>
+          <option value="Sidi Maarouf, Casablanca"></option>
+          <option value="Bourgogne, Casablanca"></option>
+          <option value="Racine, Casablanca"></option>
+          <option value="Gauthier, Casablanca"></option>
+          <option value="Anfa, Casablanca"></option>
+          <option value="Centre Ville, Casablanca"></option>
+          <option value="Hay Hassani, Casablanca"></option>
+          <option value="Oasis, Casablanca"></option>
+          <option value="Rabat"></option>
+          <option value="Marrakech"></option>
+        </datalist>
 
         <!-- Date & Time Row -->
         <div class="row">
@@ -146,7 +165,7 @@ import { Subscription } from 'rxjs';
       </div>
 
       <div class="info-note">
-        💡 Entrez n'importe quelle adresse au Maroc. Google Maps calculera le meilleur itinéraire.
+        💡 Entrez n'importe quelle adresse au Maroc. OpenStreetMap et OSRM calculeront le meilleur itinéraire gratuitement.
       </div>
 
     </div>
@@ -261,7 +280,8 @@ export class TripPlannerComponent implements AfterViewInit, OnInit, OnDestroy {
     private ngZone: NgZone,
     private historyService: HistoryService,
     private notificationService: NotificationService,
-    private authService: AuthService
+    private authService: AuthService,
+    private http: HttpClient
   ) {}
 
   departureDate = new Date().toISOString().split('T')[0];
@@ -333,32 +353,7 @@ export class TripPlannerComponent implements AfterViewInit, OnInit, OnDestroy {
   // ... (initAutocomplete remains the same)
 
   initAutocomplete() {
-    if (!this.originInput || !this.destInput) return;
-
-    const options = {
-      fields: ["formatted_address", "name", "geometry"], // Added request for geometry
-      componentRestrictions: { country: "ma" }
-    };
-
-    const originAutocomplete = new google.maps.places.Autocomplete(this.originInput.nativeElement, options);
-    const destAutocomplete = new google.maps.places.Autocomplete(this.destInput.nativeElement, options);
-
-    originAutocomplete.addListener("place_changed", () => {
-      const place = originAutocomplete.getPlace();
-      if (place.formatted_address) {
-        this.origin = place.formatted_address;
-        if (place.geometry && place.geometry.location) {
-             this.originCoords = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() };
-        }
-      }
-    });
-
-    destAutocomplete.addListener("place_changed", () => {
-      const place = destAutocomplete.getPlace();
-      if (place.formatted_address) {
-        this.destination = place.formatted_address;
-      }
-    });
+    // OpenStreetMap Free Search - no API key needed
   }
 
   useCurrentLocation() {
@@ -370,18 +365,19 @@ export class TripPlannerComponent implements AfterViewInit, OnInit, OnDestroy {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
-          
-          this.originCoords = pos; // Save exact coords
+          this.originCoords = pos;
 
-          const geocoder = new google.maps.Geocoder();
-          geocoder.geocode({ location: pos }, (results, status) => {
-            if (status === 'OK' && results && results[0]) {
+          // Free Nominatim reverse geocoding
+          const url = `https://nominatim.openstreetmap.org/reverse?lat=${pos.lat}&lon=${pos.lng}&format=json`;
+          this.http.get<any>(url).subscribe({
+            next: (res: any) => {
               this.ngZone.run(() => {
-                  this.origin = results[0].formatted_address;
+                this.origin = res?.display_name ? res.display_name.split(',')[0] + ', Casablanca' : `${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`;
               });
-            } else {
+            },
+            error: () => {
               this.ngZone.run(() => {
-                  this.origin = `${pos.lat}, ${pos.lng}`;
+                this.origin = `${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`;
               });
             }
           });

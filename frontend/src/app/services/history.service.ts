@@ -6,7 +6,7 @@ import { Observable } from 'rxjs';
   providedIn: 'root'
 })
 export class HistoryService {
-  private apiUrl = 'http://localhost:8086/api/history'; // Direct access for debugging
+  private apiUrl = 'http://localhost:8888/api/history';
 
   constructor(private http: HttpClient) {}
 

@@ -6,7 +6,7 @@ import { HttpClient } from '@angular/common/http';
   providedIn: 'root'
 })
 export class NotificationService {
-  private apiUrl = 'http://localhost:8080/notification-service/api/notifications';
+  private apiUrl = 'http://localhost:8888/api/notifications';
 
   constructor(private ngZone: NgZone, private http: HttpClient) {}
 

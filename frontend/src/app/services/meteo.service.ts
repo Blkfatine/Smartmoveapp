@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { tap, shareReplay, map } from 'rxjs/operators';
+import { tap, catchError, map } from 'rxjs/operators';
 
 export interface CurrentWeather {
     temperature: number;
@@ -33,6 +33,7 @@ export interface WeeklyForecast {
     providedIn: 'root'
 })
 export class MeteoService {
+    private gatewayUrl = 'http://localhost:8888/api/meteo/live';
     private openMeteoUrl = 'https://api.open-meteo.com/v1/forecast';
     
     private cache = new Map<string, { data: any, timestamp: number }>();
@@ -45,24 +46,32 @@ export class MeteoService {
         const cached = this.checkCache(key);
         if (cached) return of(cached);
 
-        const url = `${this.openMeteoUrl}?latitude=${lat}&longitude=${lng}&current_weather=true`;
-        return this.http.get<any>(url).pipe(
-            map(data => {
-                const response: LiveWeatherResponse = {
-                    current: {
-                        temperature: data.current_weather.temperature,
-                        windSpeed: data.current_weather.windspeed,
-                        windDirection: data.current_weather.winddirection,
-                        condition: this.mapWeatherCode(data.current_weather.weathercode),
-                        timestamp: new Date().toISOString(),
-                        visibility: 10000,
-                        hasFog: data.current_weather.weathercode === 45 || data.current_weather.weathercode === 48,
-                        fogIntensity: 'None'
-                    }
-                };
-                return response;
-            }),
-            tap(data => this.setCache(key, data))
+        // 1. Try via Gateway (meteo-service)
+        const gwUrl = `${this.gatewayUrl}?latitude=${lat}&longitude=${lng}`;
+        return this.http.get<LiveWeatherResponse>(gwUrl).pipe(
+            tap(data => this.setCache(key, data)),
+            catchError(() => {
+                // 2. Fallback to direct OpenMeteo (100% Free) if backend is offline
+                const fallbackUrl = `${this.openMeteoUrl}?latitude=${lat}&longitude=${lng}&current_weather=true`;
+                return this.http.get<any>(fallbackUrl).pipe(
+                    map(data => {
+                        const response: LiveWeatherResponse = {
+                            current: {
+                                temperature: data.current_weather?.temperature ?? 22,
+                                windSpeed: data.current_weather?.windspeed ?? 12,
+                                windDirection: data.current_weather?.winddirection ?? 180,
+                                condition: this.mapWeatherCode(data.current_weather?.weathercode ?? 0),
+                                timestamp: new Date().toISOString(),
+                                visibility: 10000,
+                                hasFog: data.current_weather?.weathercode === 45 || data.current_weather?.weathercode === 48,
+                                fogIntensity: 'None'
+                            }
+                        };
+                        return response;
+                    }),
+                    tap(data => this.setCache(key, data))
+                );
+            })
         );
     }
 

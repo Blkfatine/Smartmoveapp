@@ -41,7 +41,7 @@ export interface Prediction {
     providedIn: 'root'
 })
 export class PredictionService {
-    private apiUrl = 'http://localhost:8888/api/notifications/stream';
+    private apiUrl = 'http://localhost:8888/api/notifications/stream?userId=all';
     private predictionApiUrl = 'http://localhost:8888/api/predictions';
 
     constructor(private http: HttpClient, private ngZone: NgZone) { }

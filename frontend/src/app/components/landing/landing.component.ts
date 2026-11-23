@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-landing',
@@ -13,6 +13,7 @@ import { RouterLink } from '@angular/router';
           <span class="icon">🚗</span> SmartMove
         </div>
         <div class="nav-links">
+          <a (click)="exploreDemo()" class="btn btn-outline" style="cursor: pointer;">Mode Démo</a>
           <a routerLink="/login" class="btn btn-outline">Connexion</a>
           <a routerLink="/register" class="btn btn-primary">Inscription</a>
         </div>
@@ -26,7 +27,8 @@ import { RouterLink } from '@angular/router';
             Une solution intelligente pour une ville connectée.
           </p>
           <div class="cta-buttons">
-            <a routerLink="/register" class="cta-primary">Commencer maintenant</a>
+            <button (click)="exploreDemo()" class="cta-primary" style="cursor: pointer; border: none;">Explorer la Carte & Trajets</button>
+            <a routerLink="/login" class="btn btn-outline" style="display: flex; align-items: center; border-radius: 16px; padding: 20px 32px;">Se connecter</a>
           </div>
         </div>
       </main>
@@ -196,4 +198,12 @@ import { RouterLink } from '@angular/router';
     }
   `]
 })
-export class LandingComponent { }
+export class LandingComponent {
+  constructor(private router: Router) { }
+
+  exploreDemo() {
+    localStorage.setItem('token', 'demo-jwt-token');
+    localStorage.setItem('username', 'Visiteur Démo');
+    this.router.navigate(['/dashboard']);
+  }
+}

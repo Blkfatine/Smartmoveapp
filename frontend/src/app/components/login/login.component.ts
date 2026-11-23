@@ -50,6 +50,12 @@ import { AuthService } from '../../services/auth.service';
             <span class="loader" *ngIf="isLoading"></span>
           </button>
 
+          <div style="margin-top: 14px;">
+            <button type="button" (click)="loginAsGuest()" class="guest-btn">
+              🚀 Accéder en Mode Démo (Visualisation Rapide)
+            </button>
+          </div>
+
           <div class="live-indicator">
             <span class="pulse-dot"></span>
             <span class="live-text">🟢 En direct • Données trafic & météo actualisées</span>
@@ -209,6 +215,26 @@ import { AuthService } from '../../services/auth.service';
       cursor: not-allowed;
     }
 
+    .guest-btn {
+      width: 100%;
+      padding: 13px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #93c5fd;
+      border: 1px dashed rgba(147, 197, 253, 0.4);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .guest-btn:hover {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: #60a5fa;
+      color: white;
+      transform: translateY(-1px);
+    }
+
     .error-container {
       display: flex;
       align-items: center;
@@ -281,6 +307,12 @@ export class LoginComponent {
   isLoading = false;
 
   constructor(private authService: AuthService, private router: Router) { }
+
+  loginAsGuest() {
+    localStorage.setItem('token', 'demo-jwt-token');
+    localStorage.setItem('username', 'Visiteur Démo');
+    this.router.navigate(['/dashboard']);
+  }
 
   onSubmit() {
     this.isLoading = true;
